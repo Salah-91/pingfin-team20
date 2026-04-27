@@ -12,10 +12,6 @@
 - Azouagh Abdallah
 - Abdeddoun Ayoub
 
-## Technologie
-- **Backend:** Node.js + Express
-- **Database:** MySQL
-- **Frontend:** HTML/CSS/JS
 
 ## Mappenstructuur
 ```
