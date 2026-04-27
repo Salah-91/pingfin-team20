@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PingFin Bank — CEKVBE88</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    .header { background: #1a1f2e; border-bottom: 2px solid #2563eb; padding: 16px 32px; display: flex; align-items: center; justify-content: space-between; }
+    .header-title { font-size: 22px; font-weight: 700; color: #60a5fa; }
+    .header-bic { font-size: 13px; color: #94a3b8; background: #0f1117; padding: 4px 12px; border-radius: 20px; border: 1px solid #334155; }
+    .nav { display: flex; gap: 4px; padding: 16px 32px; background: #141824; border-bottom: 1px solid #1e293b; flex-wrap: wrap; }
+    .nav-btn { padding: 8px 18px; border: 1px solid #334155; background: transparent; color: #94a3b8; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.2s; }
+    .nav-btn:hover, .nav-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+    .main { padding: 24px 32px; max-width: 1200px; }
+    .card { background: #1a1f2e; border: 1px solid #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card-title { font-size: 16px; font-weight: 600; color: #60a5fa; margin-bottom: 16px; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat { background: #141824; border: 1px solid #1e293b; border-radius: 10px; padding: 20px; text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #34d399; }
+    .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #0f1117; color: #64748b; padding: 10px 12px; text-align: left; font-weight: 500; border-bottom: 1px solid #1e293b; }
+    td { padding: 10px 12px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+    tr:hover td { background: #141824; }
+    .badge { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .badge-ok { background: #064e3b; color: #34d399; }
+    .badge-err { background: #450a0a; color: #f87171; }
+    .badge-pending { background: #1e3a5f; color: #60a5fa; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-success { background: #059669; color: white; }
+    .btn-success:hover { background: #047857; }
+    .btn-danger { background: #dc2626; color: white; }
+    .btn-danger:hover { background: #b91c1c; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 12px; color: #64748b; }
+    input, select { background: #0f1117; border: 1px solid #334155; color: #e2e8f0; padding: 8px 12px; border-radius: 8px; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #2563eb; }
+    .log { background: #0a0e17; border: 1px solid #1e293b; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+    .log-entry { padding: 2px 0; color: #94a3b8; }
+    .log-entry.ok { color: #34d399; }
+    .log-entry.err { color: #f87171; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .loading { color: #64748b; font-size: 13px; padding: 20px; text-align: center; }
+  </style>
+</head>
+<body>
+<div class="header">
+  <div class="header-title">🏦 PingFin Bank Dashboard</div>
+  <div class="header-bic">BIC: CEKVBE88 · Team 20</div>
+</div>
+<div class="nav">
+  <button class="nav-btn active" onclick="showSection('dashboard', this)">Dashboard</button>
+  <button class="nav-btn" onclick="showSection('accounts', this)">Accounts</button>
+  <button class="nav-btn" onclick="showSection('po-new', this)">PO Aanmaken</button>
+  <button class="nav-btn" onclick="showSection('po-out', this)">PO_OUT</button>
+  <button class="nav-btn" onclick="showSection('po-in', this)">PO_IN</button>
+  <button class="nav-btn" onclick="showSection('ack-in', this)">ACK_IN</button>
+  <button class="nav-btn" onclick="showSection('ack-out', this)">ACK_OUT</button>
+</div>
+<div class="main">
+  <div id="section-dashboard" class="section active">
+    <div class="stats">
+      <div class="stat"><div class="stat-value" id="stat-accounts">-</div><div class="stat-label">Accounts</div></div>
+      <div class="stat"><div class="stat-value" id="stat-po-out">-</div><div class="stat-label">PO_OUT</div></div>
+      <div class="stat"><div class="stat-value" id="stat-po-in">-</div><div class="stat-label">PO_IN</div></div>
+      <div class="stat"><div class="stat-value" id="stat-ack-in">-</div><div class="stat-label">ACK_IN</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">ℹ️ Bank Info</div>
+      <div id="info-content" class="loading">Laden...</div>
+    </div>
+  </div>
+  <div id="section-accounts" class="section">
+    <div class="card">
+      <div class="card-title">💳 Alle Accounts</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>IBAN</th><th>Balans</th></tr></thead>
+          <tbody id="accounts-body"><tr><td colspan="2" class="loading">Laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="section-po-new" class="section">
+    <div class="card">
+      <div class="card-title">➕ Nieuwe Payment Orders</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Aantal te genereren</label>
+          <input type="number" id="gen-count" value="5" min="1" max="20" style="width:100px">
+        </div>
+        <button class="btn btn-primary" onclick="generatePOs()">Genereer PO's</button>
+        <button class="btn btn-success" onclick="addGeneratedPOs()">Voeg toe aan PO_NEW</button>
+        <button class="btn btn-danger" onclick="processPOs()">Verwerk PO_NEW</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OA</th><th>BB</th><th>BA</th><th>Bericht</th></tr></thead>
+          <tbody id="po-new-body"><tr><td colspan="6" class="loading">Klik op Genereer</td></tr></tbody>
+        </table>
+      </div>
+      <div class="log" id="po-log" style="margin-top:16px"></div>
+    </div>
+  </div>
+  <div id="section-po-out" class="section">
+    <div class="card">
+      <div class="card-title">📤 PO_OUT — Uitgaande betalingen</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OB code</th><th>CB code</th><th>BB code</th></tr></thead>
+          <tbody id="po-out-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="section-po-in" class="section">
+    <div class="card">
+      <div class="card-title">📥 PO_IN — Inkomende betalingen</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OB</th><th>CB code</th><th>BB code</th></tr></thead>
+          <tbody id="po-in-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="section-ack-in" class="section">
+    <div class="card">
+      <div class="card-title">✅ ACK_IN — Ontvangen bevestigingen</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO_ID</th><th>Bedrag</th><th>CB code</th><th>BB code</th><th>Datum</th></tr></thead>
+          <tbody id="ack-in-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="section-ack-out" class="section">
+    <div class="card">
+      <div class="card-title">📨 ACK_OUT — Verstuurde bevestigingen</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>PO_ID</th><th>Bedrag</th><th>BB code</th><th>Datum</th></tr></thead>
+          <tbody id="ack-out-body"><tr><td colspan="4" class="loading">Laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const API = 'http://localhost:3000/api';
+let generatedPOs = [];
+
+function showSection(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  btn.classList.add('active');
+  loadSection(name);
+}
+
+function badge(code) {
+  if (!code) return '<span class="badge badge-pending">—</span>';
+  if (code === 'OK' || code === '2000') return `<span class="badge badge-ok">${code}</span>`;
+  return `<span class="badge badge-err">${code}</span>`;
+}
+
+async function api(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+async function loadSection(name) {
+  if (name === 'dashboard') loadDashboard();
+  if (name === 'accounts') loadAccounts();
+  if (name === 'po-out') loadPoOut();
+  if (name === 'po-in') loadPoIn();
+  if (name === 'ack-in') loadAckIn();
+  if (name === 'ack-out') loadAckOut();
+}
+
+async function loadDashboard() {
+  try {
+    const info = await api('/info');
+    const d = info.data;
+    document.getElementById('info-content').innerHTML =
+      `<p><b>Bank:</b> ${d.bank_name}</p>
+      <p><b>BIC:</b> ${d.bic}</p>
+      <p><b>Team:</b> ${d.team}</p>
+      <p style="margin-top:8px"><b>Leden:</b></p>
+      ${d.members.map(m => `<p style="padding-left:12px">• ${m.name} — <span style="color:#64748b">${m.role}</span></p>`).join('')}`;
+    const [acc, po_out, po_in, ack_in] = await Promise.all([api('/accounts'), api('/po_out'), api('/po_in'), api('/ack_in')]);
+    document.getElementById('stat-accounts').textContent = (acc.data || []).length;
+    document.getElementById('stat-po-out').textContent = (po_out.data || []).length;
+    document.getElementById('stat-po-in').textContent = (po_in.data || []).length;
+    document.getElementById('stat-ack-in').textContent = (ack_in.data || []).length;
+  } catch { document.getElementById('info-content').textContent = 'API niet bereikbaar'; }
+}
+
+async function loadAccounts() {
+  const data = await api('/accounts');
+  const tbody = document.getElementById('accounts-body');
+  if (!data.data?.length) { tbody.innerHTML = '<tr><td colspan="2">Geen accounts</td></tr>'; return; }
+  tbody.innerHTML = data.data.map(a => `<tr><td style="font-family:monospace">${a.id}</td><td style="color:#34d399">€${parseFloat(a.balance).toFixed(2)}</td></tr>`).join('');
+}
+
+async function generatePOs() {
+  const count = document.getElementById('gen-count').value;
+  const data = await api(`/po_new/generate?count=${count}`);
+  generatedPOs = data.data || [];
+  document.getElementById('po-new-body').innerHTML = generatedPOs.map(p =>
+    `<tr>
+      <td style="font-family:monospace;font-size:11px">${p.po_id}</td>
+      <td style="color:#34d399">€${parseFloat(p.po_amount).toFixed(2)}</td>
+      <td style="font-size:11px">${p.oa_id}</td>
+      <td>${p.bb_id}</td>
+      <td style="font-size:11px">${p.ba_id}</td>
+      <td>${p.po_message}</td>
+    </tr>`).join('');
+  log('ok', `${generatedPOs.length} POs gegenereerd`);
+}
+
+async function addGeneratedPOs() {
+  if (!generatedPOs.length) { log('err', 'Geen POs gegenereerd'); return; }
+  const r = await fetch(API + '/po_new/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: generatedPOs }) });
+  const data = await r.json();
+  log(data.ok ? 'ok' : 'err', data.message);
+}
+
+async function processPOs() {
+  const data = await api('/po_new/process');
+  log(data.ok ? 'ok' : 'err', data.message);
+  if (data.data) data.data.forEach(r => log(r.status === 'REJECTED' ? 'err' : 'ok', `${r.po_id} → ${r.status} (${r.code})`));
+}
+
+async function loadPoOut() {
+  const data = await api('/po_out');
+  const tbody = document.getElementById('po-out-body');
+  if (!data.data?.length) { tbody.innerHTML = '<tr><td colspan="5">Geen data</td></tr>'; return; }
+  tbody.innerHTML = data.data.map(p => `<tr><td style="font-family:monospace;font-size:11px">${p.po_id}</td><td>€${parseFloat(p.po_amount).toFixed(2)}</td><td>${badge(p.ob_code)}</td><td>${badge(p.cb_code)}</td><td>${badge(p.bb_code)}</td></tr>`).join('');
+}
+
+async function loadPoIn() {
+  const data = await api('/po_in');
+  const tbody = document.getElementById('po-in-body');
+  if (!data.data?.length) { tbody.innerHTML = '<tr><td colspan="5">Geen inkomende POs</td></tr>'; return; }
+  tbody.innerHTML = data.data.map(p => `<tr><td style="font-family:monospace;font-size:11px">${p.po_id}</td><td>€${parseFloat(p.po_amount).toFixed(2)}</td><td>${p.ob_id}</td><td>${badge(p.cb_code)}</td><td>${badge(p.bb_code)}</td></tr>`).join('');
+}
+
+async function loadAckIn() {
+  const data = await api('/ack_in');
+  const tbody = document.getElementById('ack-in-body');
+  if (!data.data?.length) { tbody.innerHTML = '<tr><td colspan="5">Geen ACKs</td></tr>'; return; }
+  tbody.innerHTML = data.data.map(a => `<tr><td style="font-family:monospace;font-size:11px">${a.po_id}</td><td>€${parseFloat(a.po_amount).toFixed(2)}</td><td>${badge(a.cb_code)}</td><td>${badge(a.bb_code)}</td><td style="font-size:11px">${a.cb_datetime || '—'}</td></tr>`).join('');
+}
+
+async function loadAckOut() {
+  const data = await api('/ack_out');
+  const tbody = document.getElementById('ack-out-body');
+  if (!data.data?.length) { tbody.innerHTML = '<tr><td colspan="4">Geen ACKs</td></tr>'; return; }
+  tbody.innerHTML = data.data.map(a => `<tr><td style="font-family:monospace;font-size:11px">${a.po_id}</td><td>€${parseFloat(a.po_amount).toFixed(2)}</td><td>${badge(a.bb_code)}</td><td style="font-size:11px">${a.bb_datetime || '—'}</td></tr>`).join('');
+}
+
+function log(type, msg) {
+  const el = document.getElementById('po-log');
+  const div = document.createElement('div');
+  div.className = `log-entry ${type}`;
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.prepend(div);
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
