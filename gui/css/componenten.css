@@ -295,3 +295,29 @@
   font-size: 12px;
   line-height: 1.6;
 }
+
+/* ── Bank-selector in header ── */
+.bank-selector {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--kleur-tekst-zacht);
+  background: var(--kleur-verhoogd);
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--kleur-rand);
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--overgang), color var(--overgang);
+}
+
+.bank-selector:hover,
+.bank-selector:focus {
+  border-color: var(--kleur-accent);
+  color: var(--kleur-tekst);
+}
+
+.bank-selector option {
+  background: var(--kleur-oppervlak);
+  color: var(--kleur-tekst);
+}

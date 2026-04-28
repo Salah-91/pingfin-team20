@@ -1,15 +1,26 @@
 'use strict';
 
 /* ─────────────────────────────────────────────
-   Configuratie
-   Voor lokale dev: http://localhost:3000/api
-   Voor Railway deployment: vervang door Railway URL
+   Bank-configuratie
+   Bank1: /api prefix, poort 3000
+   Bank2: geen prefix, poort 3001
 ─────────────────────────────────────────────── */
-const API_BASIS = 'http://localhost:3000/api';
+const BANKEN = {
+  bank1: {
+    naam:           'Bank1',
+    bic:            'CEKVBE88',
+    apiBase:        'http://localhost:3000/api',
+    heeftManuelePo: true,
+  },
+  bank2: {
+    naam:           'Bank2',
+    bic:            'HOMNBEB1',
+    apiBase:        'http://localhost:3001',
+    heeftManuelePo: true,
+  },
+};
 
-/* ─────────────────────────────────────────────
-   Status
-─────────────────────────────────────────────── */
+let huidigeBank    = BANKEN.bank1;
 let gegenereerdePos = [];
 
 /* ─────────────────────────────────────────────
@@ -37,10 +48,54 @@ function laadSectie(naam) {
 }
 
 /* ─────────────────────────────────────────────
+   Bank-selector
+─────────────────────────────────────────────── */
+function wisselBank(bankKey) {
+  if (!BANKEN[bankKey]) return;
+  huidigeBank = BANKEN[bankKey];
+  localStorage.setItem('pingfin_bank', bankKey);
+
+  const bicLabel = document.getElementById('header-bic-label');
+  if (bicLabel) bicLabel.textContent = 'BIC: ' + huidigeBank.bic;
+
+  const asideBic = document.getElementById('aside-bic-waarde');
+  if (asideBic) asideBic.textContent = huidigeBank.bic;
+
+  const asideNaam = document.getElementById('aside-banknaam-waarde');
+  if (asideNaam) asideNaam.textContent = huidigeBank.naam;
+
+  document.title = 'PingFin — ' + huidigeBank.bic;
+
+  // Reset BB BIC naar eigen BIC als het leeg is of nog een eigen BIC bevat
+  const bbVeld = document.getElementById('m-bb-id');
+  if (bbVeld) {
+    bbVeld.placeholder = huidigeBank.bic;
+    const eigenBics = Object.values(BANKEN).map(b => b.bic);
+    if (!bbVeld.value || eigenBics.includes(bbVeld.value)) {
+      bbVeld.value = huidigeBank.bic;
+    }
+  }
+
+  // Herlaad actieve sectie
+  const actieveSectie = document.querySelector('.sectie.actief');
+  if (actieveSectie) laadSectie(actieveSectie.id.replace('sectie-', ''));
+}
+
+function initialiseerBankSelector() {
+  const opgeslagen = localStorage.getItem('pingfin_bank');
+  const bankKey    = (opgeslagen && BANKEN[opgeslagen]) ? opgeslagen : 'bank1';
+
+  const selector = document.getElementById('bank-selector');
+  if (selector) selector.value = bankKey;
+
+  wisselBank(bankKey);
+}
+
+/* ─────────────────────────────────────────────
    API-hulpfunctie
 ─────────────────────────────────────────────── */
 async function apiFetch(pad, opties) {
-  const antwoord = await fetch(API_BASIS + pad, opties);
+  const antwoord = await fetch(huidigeBank.apiBase + pad, opties);
   if (!antwoord.ok) throw new Error(`HTTP ${antwoord.status}`);
   return antwoord.json();
 }
@@ -73,8 +128,15 @@ function zetTeller(id, rijen) {
   if (el) el.textContent = rijen.length + ' rijen';
 }
 
-function legeRij(kolommen, bericht = 'Geen data beschikbaar') {
+function legeRij(kolommen, bericht = 'Geen data') {
   return `<tr class="rij-leeg"><td colspan="${kolommen}">${bericht}</td></tr>`;
+}
+
+/* normaliseert API-antwoord naar array — werkt voor { data: [...] } én directe arrays */
+function normaliseer(res) {
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.data)) return res.data;
+  return [];
 }
 
 /* ─────────────────────────────────────────────
@@ -82,7 +144,8 @@ function legeRij(kolommen, bericht = 'Geen data beschikbaar') {
 ─────────────────────────────────────────────── */
 async function laadDashboard() {
   try {
-    const { data: d } = await apiFetch('/info');
+    const res = await apiFetch('/info');
+    const d   = res.data ?? res ?? {};
     document.getElementById('info-inhoud').innerHTML = `
       <div class="info-rij">
         <span class="info-label">Banknaam</span>
@@ -108,6 +171,12 @@ async function laadDashboard() {
             <div class="lid-rol">${m.role ?? ''}</div>
           </div>`).join('')}
       </div>`;
+
+    // Sync aside met live bankinfo uit API
+    const asideBic = document.getElementById('aside-bic-waarde');
+    if (asideBic && d.bic) asideBic.textContent = d.bic;
+    const asideNaam = document.getElementById('aside-banknaam-waarde');
+    if (asideNaam && d.bank_name) asideNaam.textContent = d.bank_name;
   } catch {
     document.getElementById('info-inhoud').innerHTML =
       '<div class="leeg"><div class="leeg-icoon">⚠️</div><div class="leeg-tekst">API niet bereikbaar — controleer de server</div></div>';
@@ -116,12 +185,12 @@ async function laadDashboard() {
   try {
     const [acc, poUit, poIn, ackIn] = await Promise.all([
       apiFetch('/accounts'), apiFetch('/po_out'),
-      apiFetch('/po_in'), apiFetch('/ack_in')
+      apiFetch('/po_in'),    apiFetch('/ack_in'),
     ]);
-    document.getElementById('stat-accounts').textContent = (acc.data || []).length;
-    document.getElementById('stat-po-uit').textContent   = (poUit.data || []).length;
-    document.getElementById('stat-po-in').textContent    = (poIn.data || []).length;
-    document.getElementById('stat-ack-in').textContent   = (ackIn.data || []).length;
+    document.getElementById('stat-accounts').textContent = normaliseer(acc).length;
+    document.getElementById('stat-po-uit').textContent   = normaliseer(poUit).length;
+    document.getElementById('stat-po-in').textContent    = normaliseer(poIn).length;
+    document.getElementById('stat-ack-in').textContent   = normaliseer(ackIn).length;
   } catch {
     ['stat-accounts', 'stat-po-uit', 'stat-po-in', 'stat-ack-in']
       .forEach(id => { document.getElementById(id).textContent = '—'; });
@@ -135,7 +204,7 @@ async function laadAccounts() {
   const tbody = document.getElementById('accounts-rijen');
   tbody.innerHTML = `<tr><td colspan="4" class="laden">Laden…</td></tr>`;
   try {
-    const { data: rijen = [] } = await apiFetch('/accounts');
+    const rijen = normaliseer(await apiFetch('/accounts'));
     zetTeller('accounts-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map((a, i) => `
@@ -161,7 +230,7 @@ function laadPoNieuw() {
 async function genereerPos() {
   const aantal = document.getElementById('po-aantal').value;
   try {
-    const { data = [] } = await apiFetch(`/po_new/generate?count=${aantal}`);
+    const data = normaliseer(await apiFetch(`/po_new/generate?count=${aantal}`));
     gegenereerdePos = data;
     document.getElementById('po-nieuw-rijen').innerHTML = gegenereerdePos.map(p => `
       <tr>
@@ -181,7 +250,7 @@ async function genereerPos() {
 async function slaPoNieuwOp() {
   if (!gegenereerdePos.length) { voegLogToe('info', 'Geen POs om op te slaan'); return; }
   try {
-    const r = await fetch(API_BASIS + '/po_new/add', {
+    const r = await fetch(huidigeBank.apiBase + '/po_new/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: gegenereerdePos })
@@ -206,19 +275,26 @@ async function verwerkPoNieuw() {
 }
 
 async function verstuurManuelePos() {
-  const oa_id    = document.getElementById('m-oa-id')?.value?.trim();
-  const ba_id    = document.getElementById('m-ba-id')?.value?.trim();
-  const bb_id    = document.getElementById('m-bb-id')?.value?.trim();
-  const amount   = document.getElementById('m-amount')?.value?.trim();
-  const message  = document.getElementById('m-message')?.value?.trim();
+  const oa_id   = document.getElementById('m-oa-id')?.value?.trim();
+  const ba_id   = document.getElementById('m-ba-id')?.value?.trim();
+  const bb_id   = document.getElementById('m-bb-id')?.value?.trim() || huidigeBank.bic;
+  const amount  = document.getElementById('m-amount')?.value?.trim();
+  const message = document.getElementById('m-message')?.value?.trim();
 
   if (!oa_id || !ba_id || !bb_id || !amount) {
     voegLogToe('fout', 'Vul alle verplichte velden in (OA, BA, BB, bedrag)');
     return;
   }
 
+  if (!huidigeBank.heeftManuelePo) {
+    voegLogToe('info',
+      `${huidigeBank.naam} heeft geen GUI-endpoint voor manuele PO. ` +
+      `Test via: curl -X POST ${huidigeBank.apiBase}/po_new/manual`);
+    return;
+  }
+
   try {
-    const r = await fetch(API_BASIS + '/po_new/manual', {
+    const r = await fetch(huidigeBank.apiBase + '/po_new/manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oa_id, ba_id, bb_id, po_amount: parseFloat(amount), po_message: message })
@@ -241,7 +317,7 @@ async function laadPoUit() {
   const tbody = document.getElementById('po-uit-rijen');
   tbody.innerHTML = `<tr><td colspan="6" class="laden">Laden…</td></tr>`;
   try {
-    const { data: rijen = [] } = await apiFetch('/po_out');
+    const rijen = normaliseer(await apiFetch('/po_out'));
     zetTeller('po-uit-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(p => `
@@ -253,7 +329,7 @@ async function laadPoUit() {
             <td>${badge(p.cb_code)}</td>
             <td>${badge(p.bb_code)}</td>
           </tr>`).join('')
-      : legeRij(6, 'Geen uitgaande POs');
+      : legeRij(6, 'Geen data');
   } catch {
     tbody.innerHTML = legeRij(6, '⚠️ Fout bij ophalen van PO_OUT');
   }
@@ -266,7 +342,7 @@ async function laadPoIn() {
   const tbody = document.getElementById('po-in-rijen');
   tbody.innerHTML = `<tr><td colspan="5" class="laden">Laden…</td></tr>`;
   try {
-    const { data: rijen = [] } = await apiFetch('/po_in');
+    const rijen = normaliseer(await apiFetch('/po_in'));
     zetTeller('po-in-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(p => `
@@ -277,7 +353,7 @@ async function laadPoIn() {
             <td>${badge(p.cb_code)}</td>
             <td>${badge(p.bb_code)}</td>
           </tr>`).join('')
-      : legeRij(5, 'Geen inkomende POs');
+      : legeRij(5, 'Geen data');
   } catch {
     tbody.innerHTML = legeRij(5, '⚠️ Fout bij ophalen van PO_IN');
   }
@@ -290,7 +366,7 @@ async function laadAckIn() {
   const tbody = document.getElementById('ack-in-rijen');
   tbody.innerHTML = `<tr><td colspan="4" class="laden">Laden…</td></tr>`;
   try {
-    const { data: rijen = [] } = await apiFetch('/ack_in');
+    const rijen = normaliseer(await apiFetch('/ack_in'));
     zetTeller('ack-in-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(a => `
@@ -300,7 +376,7 @@ async function laadAckIn() {
             <td>${badge(a.bb_code)}</td>
             <td>${datumCel(a.received_at)}</td>
           </tr>`).join('')
-      : legeRij(4, 'Geen bevestigingen ontvangen');
+      : legeRij(4, 'Geen data');
   } catch {
     tbody.innerHTML = legeRij(4, '⚠️ Fout bij ophalen van ACK_IN');
   }
@@ -313,7 +389,7 @@ async function laadAckUit() {
   const tbody = document.getElementById('ack-uit-rijen');
   tbody.innerHTML = `<tr><td colspan="3" class="laden">Laden…</td></tr>`;
   try {
-    const { data: rijen = [] } = await apiFetch('/ack_out');
+    const rijen = normaliseer(await apiFetch('/ack_out'));
     zetTeller('ack-uit-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(a => `
@@ -322,7 +398,7 @@ async function laadAckUit() {
             <td>${badge(a.bb_code)}</td>
             <td>${datumCel(a.sent_at)}</td>
           </tr>`).join('')
-      : legeRij(3, 'Geen bevestigingen verstuurd');
+      : legeRij(3, 'Geen data');
   } catch {
     tbody.innerHTML = legeRij(3, '⚠️ Fout bij ophalen van ACK_OUT');
   }
@@ -345,5 +421,5 @@ function voegLogToe(type, bericht) {
    Initialisatie bij paginaladen
 ─────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-  laadDashboard();
+  initialiseerBankSelector();
 });

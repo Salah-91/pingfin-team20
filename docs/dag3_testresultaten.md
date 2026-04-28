@@ -48,8 +48,12 @@ curl http://localhost:3001/
 |------|-----------|
 | GUI bereikbaar op localhost:8080 | ✅ Geslaagd |
 | Accounts tabel toont IBAN + naam + saldo | ✅ Geslaagd |
+| Bank1/Bank2 selector zichtbaar in header | ✅ Geslaagd |
+| Wisselen naar Bank2 herlaadt alle tabbladen met Bank2-data | ✅ Geslaagd |
 
-> **Opmerking:** GUI toont enkel Bank1 data. Bank2 wordt via API/curl getest (geen GUI-selector aanwezig).
+> **Opmerking:** De GUI heeft nu een bank-selector (Bank1 — CEKVBE88 / Bank2 — HOMNBEB1) in de header rechts naast de BIC-badge.  
+> De gekozen bank wordt opgeslagen in `localStorage` — na refresh blijft dezelfde bank actief.  
+> Bank2-endpoints gebruiken geen `/api` prefix; de GUI past de base-URL automatisch aan.
 
 ---
 
@@ -136,19 +140,35 @@ Zet het token in `api/.env` als `CB_TOKEN=<token>` en herstart Bank1.
 
 ---
 
-### TS-06: Bank2 via API
+### TS-06: Bank2 via GUI-selector en API
 
-Bank2 heeft geen GUI-integratie, maar reageert correct via curl:
+Bank2 is nu beschikbaar via de GUI-selector én via curl.
 
+**Via GUI:** Selecteer "Bank2 — HOMNBEB1" in de header-dropdown. Alle tabbladen laden Bank2-data automatisch.
+
+**Via curl (alternatief / verificatie):**
 ```bash
 curl http://localhost:3001/accounts
 curl http://localhost:3001/po_in
+curl http://localhost:3001/po_out
+curl http://localhost:3001/ack_in
+curl http://localhost:3001/ack_out
 ```
+
+**Manuele PO Bank2 via curl:**
+```bash
+curl -X POST http://localhost:3001/po_new/manual \
+  -H "Content-Type: application/json" \
+  -d '{"oa_id":"<IBAN>","ba_id":"<IBAN>","bb_id":"HOMNBEB1","po_amount":25.00,"po_message":"Test Bank2"}'
+```
+
+> **Extern CB-flow:** vereist een geldig `CB_TOKEN2` in `bank2/.env`. Zonder token wordt de CB-call gelogd als fout maar crasht de server niet.
 
 | Test | Resultaat |
 |------|-----------|
 | Bank2 accounts endpoint | ✅ Geslaagd |
 | Bank2 po_in endpoint | ✅ Geslaagd |
+| Bank2 data zichtbaar via GUI-selector | ✅ Geslaagd |
 
 ---
 
@@ -237,5 +257,7 @@ curl -X POST http://localhost:3000/api/ack_in \
 | Server crasht niet bij fouten | ✅ |
 | `docs/api.md` aanwezig | ✅ |
 | `docs/dag3_testresultaten.md` aanwezig | ✅ |
-| GUI toont Bank1 data | ✅ |
+| GUI heeft Bank1/Bank2 selector | ✅ |
+| GUI toont Bank1 data (standaard) | ✅ |
+| GUI toont Bank2 data via selector | ✅ |
 | Bank2 getest via API/curl | ✅ |

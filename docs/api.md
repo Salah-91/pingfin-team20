@@ -22,7 +22,11 @@ docker compose up --build
 > Vraag je token aan via `POST https://stevenop.be/pingfin/api/v2/token` met je BIC en secret_key.  
 > Interne betalingen (ob_id === bb_id) werken zonder CB_TOKEN.
 
-> **Bank2 GUI:** De GUI toont alleen Bank1 data. Test Bank2 via `http://localhost:3001/...` of via curl.
+> **Bank2 GUI:** De GUI heeft een **Bank1 / Bank2 selector** in de header (rechts naast de BIC-badge).  
+> Schakel naar Bank2 om alle tabbladen (Dashboard, Accounts, PO_OUT, PO_IN, ACK_IN, ACK_OUT) met Bank2-data te laden.  
+> Bank2 API heeft géén `/api` prefix — de GUI past de base-URL automatisch aan (`http://localhost:3001`).  
+> Manuele PO voor Bank2 stuurt naar `http://localhost:3001/po_new/manual`.  
+> De gekozen bank wordt opgeslagen in `localStorage` en blijft actief na een refresh.
 
 ---
 

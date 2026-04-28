@@ -183,12 +183,28 @@ router.get('/po_new/process', async (req, res) => {
   try {
     const [pos] = await pool.query('SELECT * FROM po_new');
     if (pos.length === 0)
-      return res.json({ ok: true, status: 200, code: null, message: 'Geen POs te verwerken', data: [] });
+      return res.json({ ok: true, status: 200, code: null, processed: 0, skipped: 0, message: 'Geen POs te verwerken', data: [] });
 
     const results = [];
+    let skipped = 0;
 
     for (const po of pos) {
       const isInternal = po.bb_id === BIC;
+
+      // Idempotency: skip als al eerder verwerkt (crash-recovery of dubbele aanroep)
+      try {
+        const [inPoOut] = await pool.query('SELECT po_id FROM po_out WHERE po_id = ?', [po.po_id]);
+        const [inTx]    = await pool.query('SELECT po_id FROM transactions WHERE po_id = ?', [po.po_id]);
+        if (inPoOut.length > 0 || inTx.length > 0) {
+          await writeLog(po.po_id, 'po_duplicate', 'PO al verwerkt — overgeslagen');
+          await pool.query('DELETE FROM po_new WHERE po_id = ?', [po.po_id]);
+          results.push({ po_id: po.po_id, status: 'SKIPPED', code: C.OK, reason: 'already_processed' });
+          skipped++;
+          continue;
+        }
+      } catch (dupErr) {
+        await writeLog(po.po_id, 'error', `Duplicate-check fout: ${dupErr.message}`);
+      }
 
       // ── validatie ──
       let errorCode = null;
@@ -255,15 +271,26 @@ router.get('/po_new/process', async (req, res) => {
         continue;
       }
 
-      // ── externe betaling — debiteer OA en stuur naar CB ──
+      // ── externe betaling — INSERT in eigen try/catch om ER_DUP_ENTRY op te vangen ──
       const ts = now();
-      await pool.query(
-        `INSERT INTO po_out
-          (po_id,po_amount,po_message,po_datetime,ob_id,oa_id,ob_code,ob_datetime,bb_id,ba_id,status)
-          VALUES (?,?,?,?,?,?,?,?,?,?,'pending')`,
-        [po.po_id, po.po_amount, po.po_message, po.po_datetime, po.ob_id, po.oa_id,
-         C.OK, ts, po.bb_id, po.ba_id]
-      );
+      try {
+        await pool.query(
+          `INSERT INTO po_out
+            (po_id,po_amount,po_message,po_datetime,ob_id,oa_id,ob_code,ob_datetime,bb_id,ba_id,status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,'pending')`,
+          [po.po_id, po.po_amount, po.po_message, po.po_datetime, po.ob_id, po.oa_id,
+           C.OK, ts, po.bb_id, po.ba_id]
+        );
+      } catch (insertErr) {
+        if (insertErr.code === 'ER_DUP_ENTRY') {
+          await writeLog(po.po_id, 'po_duplicate', 'po_id al in po_out (race condition) — overgeslagen');
+          await pool.query('DELETE FROM po_new WHERE po_id = ?', [po.po_id]);
+          results.push({ po_id: po.po_id, status: 'SKIPPED', code: C.OK, reason: 'already_in_po_out' });
+          skipped++;
+          continue;
+        }
+        throw insertErr;
+      }
 
       // Debiteer OA nu (bij negatieve ACK refunden we)
       await pool.query('UPDATE accounts SET balance = balance - ? WHERE id = ?', [po.po_amount, po.oa_id]);
@@ -293,7 +320,14 @@ router.get('/po_new/process', async (req, res) => {
       results.push({ po_id: po.po_id, status: 'PENDING', code: C.OK, type: 'external', cb_code: cbCode });
     }
 
-    res.json({ ok: true, status: 200, code: null, message: `${pos.length} POs verwerkt`, data: results });
+    const processed = results.length - skipped;
+    res.json({
+      ok: true, status: 200, code: null,
+      processed,
+      skipped,
+      message: `${processed} PO(s) verwerkt, ${skipped} overgeslagen (duplicate)`,
+      data: results,
+    });
   } catch (err) {
     await writeLog(null, 'error', `po_new/process fout: ${err.message}`);
     res.status(500).json({ ok: false, status: 500, code: null, message: err.message, data: null });

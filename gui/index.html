@@ -34,7 +34,12 @@
 			<div class="header-rechts">
 				<!-- span i.p.v. div: inline elementen -->
 				<span class="status-lamp" role="img" title="API verbonden" aria-label="API actief"></span>
-				<span class="bic-label">BIC: CEKVBE88</span>
+				<select id="bank-selector" class="bank-selector" onchange="wisselBank(this.value)"
+					title="Selecteer bank" aria-label="Bank selecteren">
+					<option value="bank1">Bank1 — CEKVBE88</option>
+					<option value="bank2">Bank2 — HOMNBEB1</option>
+				</select>
+				<span class="bic-label" id="header-bic-label">BIC: CEKVBE88</span>
 			</div>
 		</header>
 
@@ -349,10 +354,14 @@
 			<div class="info-blok">
 				<!-- h3 i.p.v. div: dit is een sectietitel -->
 				<h3 class="info-blok-titel">🔑 Verbinding</h3>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">Bank</span>
+					<span class="info-waarde" id="aside-banknaam-waarde">Bank1</span>
+				</div>
 				<!-- info-rij--compact: kleinere padding voor aside (zie componenten.css) -->
 				<div class="info-rij info-rij--compact">
 					<span class="info-label">BIC</span>
-					<span class="info-waarde">CEKVBE88</span>
+					<span class="info-waarde" id="aside-bic-waarde">CEKVBE88</span>
 				</div>
 				<div class="info-rij info-rij--compact">
 					<span class="info-label">Team</span>
@@ -360,7 +369,7 @@
 				</div>
 				<!-- info-rij--compact info-rij--laatste i.p.v. inline border:none -->
 				<div class="info-rij info-rij--compact info-rij--laatste">
-					<span class="info-label">Begelijder</span>
+					<span class="info-label">Begeleider</span>
 					<!-- info-waarde--klein i.p.v. inline font-size:12px -->
 					<span class="info-waarde info-waarde--klein">Rogier van der Linde</span>
 				</div>
