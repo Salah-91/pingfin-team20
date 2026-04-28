@@ -1,0 +1,268 @@
+/* Page-specific styles — PingFin Dashboard */
+
+/* Main */
+
+.main {
+   margin: 0 auto;
+   max-width: 1200px;
+   padding: 24px 32px;
+}
+
+/* Bank indicator */
+
+.bank-indicator {
+   border-radius: 8px;
+   display: inline-block;
+   font-size: 13px;
+   font-weight: 600;
+   margin-bottom: 16px;
+   padding: 6px 16px;
+}
+
+.bank-indicator--bank1 {
+   background-color: #1e3a5f;
+   border: 1px solid #2563eb;
+   color: #60a5fa;
+}
+
+.bank-indicator--bank2 {
+   background-color: #1a3a2a;
+   border: 1px solid #059669;
+   color: #34d399;
+}
+
+/* Section */
+
+.section {
+   display: none;
+}
+
+.section--active {
+   display: block;
+}
+
+/* Card */
+
+.card {
+   background-color: #1a1f2e;
+   border: 1px solid #1e293b;
+   border-radius: 12px;
+   margin-bottom: 20px;
+   padding: 24px;
+}
+
+.card__title {
+   color: #60a5fa;
+   font-size: 16px;
+   font-weight: 600;
+   margin-bottom: 16px;
+}
+
+/* Stats */
+
+.stats {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 16px;
+   margin-bottom: 20px;
+}
+
+.stats__item {
+   background-color: #141824;
+   border: 1px solid #1e293b;
+   border-radius: 10px;
+   flex: 1 1 160px;
+   padding: 20px;
+   text-align: center;
+}
+
+.stats__value {
+   color: #34d399;
+   font-size: 28px;
+   font-weight: 700;
+}
+
+.stats__label {
+   color: #64748b;
+   font-size: 12px;
+   margin-top: 4px;
+}
+
+/* Table */
+
+.table-wrap {
+   overflow-x: auto;
+}
+
+.table {
+   border-collapse: collapse;
+   font-size: 13px;
+   width: 100%;
+}
+
+.table th {
+   background-color: #0f1117;
+   border-bottom: 1px solid #1e293b;
+   color: #64748b;
+   font-weight: 500;
+   padding: 10px 12px;
+   text-align: left;
+}
+
+.table td {
+   border-bottom: 1px solid #1e293b;
+   color: #cbd5e1;
+   padding: 10px 12px;
+}
+
+.table tr:hover td {
+   background-color: #141824;
+}
+
+/* Badge */
+
+.badge {
+   border-radius: 20px;
+   font-size: 11px;
+   font-weight: 600;
+   padding: 3px 10px;
+}
+
+.badge--ok {
+   background-color: #064e3b;
+   color: #34d399;
+}
+
+.badge--error {
+   background-color: #450a0a;
+   color: #f87171;
+}
+
+.badge--pending {
+   background-color: #1e3a5f;
+   color: #60a5fa;
+}
+
+/* Form */
+
+.form-row {
+   align-items: flex-end;
+   display: flex;
+   flex-wrap: wrap;
+   gap: 12px;
+   margin-bottom: 16px;
+}
+
+.form-group {
+   display: flex;
+   flex-direction: column;
+   gap: 4px;
+}
+
+.form-group label {
+   color: #64748b;
+   font-size: 12px;
+}
+
+.form-group input,
+.form-group select {
+   background-color: #0f1117;
+   border: 1px solid #334155;
+   border-radius: 8px;
+   color: #e2e8f0;
+   font-size: 14px;
+   padding: 8px 12px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+   border-color: #2563eb;
+   outline: none;
+}
+
+/* Buttons */
+
+.btn {
+   border: none;
+   border-radius: 8px;
+   cursor: pointer;
+   font-size: 14px;
+   font-weight: 600;
+   padding: 10px 20px;
+   transition: background-color 0.2s;
+}
+
+.btn--primary {
+   background-color: #2563eb;
+   color: #ffffff;
+}
+
+.btn--primary:hover {
+   background-color: #1d4ed8;
+}
+
+.btn--success {
+   background-color: #059669;
+   color: #ffffff;
+}
+
+.btn--success:hover {
+   background-color: #047857;
+}
+
+.btn--danger {
+   background-color: #dc2626;
+   color: #ffffff;
+}
+
+.btn--danger:hover {
+   background-color: #b91c1c;
+}
+
+/* Log */
+
+.log {
+   background-color: #0a0e17;
+   border: 1px solid #1e293b;
+   border-radius: 8px;
+   font-family: monospace;
+   font-size: 12px;
+   margin-top: 16px;
+   max-height: 200px;
+   overflow-y: auto;
+   padding: 16px;
+}
+
+.log__entry {
+   color: #94a3b8;
+   padding: 2px 0;
+}
+
+.log__entry--ok {
+   color: #34d399;
+}
+
+.log__entry--error {
+   color: #f87171;
+}
+
+/* Loading */
+
+.loading {
+   color: #64748b;
+   font-size: 13px;
+   padding: 20px;
+   text-align: center;
+}
+
+/* Media queries */
+
+@media (max-width: 600px) {
+   .main {
+      padding: 16px;
+   }
+
+   .stats {
+      flex-direction: column;
+   }
+}
