@@ -104,4 +104,4 @@ Tabellen aangemaakt in `db/schema.sql`:
 
 ---
 
-*Verslag opgesteld op 27 april 2026 — PingFin Workshop Odisee**4
+*Verslag opgesteld op 27 april 2026 — PingFin Workshop Odisee*

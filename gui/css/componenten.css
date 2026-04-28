@@ -1,0 +1,297 @@
+/* ═══════════════════════════════════════════════════════════
+   componenten.css
+   Herbruikbare UI-componenten:
+   kaarten, statistieken, badges, leden, lege toestanden
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Kaart ── */
+.kaart {
+  background: var(--kleur-oppervlak);
+  border: 1px solid var(--kleur-rand);
+  border-radius: var(--radius-lg);
+  padding: var(--ruimte-lg);
+  margin-bottom: var(--ruimte-md);
+}
+
+.kaart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ruimte-md);
+  flex-wrap: wrap;
+  gap: var(--ruimte-sm);
+}
+
+.kaart-titel {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--kleur-tekst);
+  display: flex;
+  align-items: center;
+  gap: var(--ruimte-sm);
+}
+
+/* ── Statistiekenraster ── */
+.statistieken-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ruimte-md);
+  margin-bottom: var(--ruimte-lg);
+}
+
+.statistiek-kaart {
+  background: var(--kleur-oppervlak);
+  border: 1px solid var(--kleur-rand);
+  border-radius: var(--radius-lg);
+  padding: var(--ruimte-lg) var(--ruimte-md);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--overgang), transform var(--overgang);
+  cursor: default;
+}
+
+.statistiek-kaart:hover {
+  border-color: var(--kleur-rand-licht);
+  transform: translateY(-2px);
+}
+
+/* gekleurde bovenlijn */
+.statistiek-kaart::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--kleur-accent), var(--kleur-groen));
+  opacity: 0.7;
+}
+
+.statistiek-waarde {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--kleur-groen);
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.statistiek-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--kleur-tekst-zwak);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ── Badges / statusindicatoren ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: var(--kleur-groen-bg);
+  color: var(--kleur-groen);
+  border: 1px solid rgba(34, 211, 160, 0.22);
+}
+
+.badge-fout {
+  background: var(--kleur-rood-bg);
+  color: var(--kleur-rood);
+  border: 1px solid rgba(242, 87, 87, 0.22);
+}
+
+.badge-wacht {
+  background: rgba(96, 165, 250, 0.08);
+  color: var(--kleur-blauw-licht);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+}
+
+/* ── Info-rij (label + waarde naast elkaar) ── */
+.info-rij {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ruimte-sm);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--kleur-rand);
+  font-size: 13px;
+}
+
+.info-rij:last-child { border-bottom: none; }
+
+.info-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--kleur-tekst-zwak);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  min-width: 120px;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.info-waarde {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--kleur-tekst);
+}
+
+/* ── Ledenraster ── */
+.leden-raster {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--ruimte-md);
+  margin-top: var(--ruimte-md);
+}
+
+.lid-kaart {
+  background: var(--kleur-verhoogd);
+  border: 1px solid var(--kleur-rand);
+  border-radius: var(--radius-md);
+  padding: var(--ruimte-md);
+}
+
+.lid-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--kleur-accent), var(--kleur-groen));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  color: white;
+  margin-bottom: var(--ruimte-sm);
+}
+
+.lid-naam {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--kleur-tekst);
+}
+
+.lid-rol {
+  font-size: 11px;
+  color: var(--kleur-tekst-zwak);
+  margin-top: 2px;
+}
+
+/* ── Info-rij varianten (vervangt inline styles) ── */
+
+/* info-rij--compact: kleinere padding voor aside-blokken
+   vervangt: style="padding:6px 0" en style="padding:5px 0" */
+.info-rij--compact {
+  padding: 5px 0;
+}
+
+/* info-rij--laatste: geen onderste rand op laatste rij
+   vervangt: style="border:none" */
+.info-rij--laatste {
+  border-bottom: none;
+}
+
+/* info-waarde--klein: kleinere tekst voor aside-waarden
+   vervangt: style="font-size:12px" */
+.info-waarde--klein {
+  font-size: 12px;
+}
+
+/* ── Kaart-acties (teller + knop rechts naast kaarttitel)
+   vervangt: style="display:flex;align-items:center;gap:8px" ── */
+.kaart-acties {
+  display: flex;
+  align-items: center;
+  gap: var(--ruimte-sm);
+}
+
+/* ── Tabelwerkbalk inline (in kaart-header)
+   vervangt: style="margin:0" op .tabel-werkbalk ── */
+.tabel-werkbalk--inline {
+  margin: 0;
+}
+
+/* ── Aside externe links
+   vervangt: style="color:...;font-size:12px;text-decoration:none" op <a>
+   en style="margin-bottom:8px" op <p> ── */
+.aside-link-rij {
+  margin-bottom: var(--ruimte-sm);
+}
+
+.aside-link-rij:last-child {
+  margin-bottom: 0;
+}
+
+.aside-link {
+  color: var(--kleur-blauw-licht);
+  font-size: 12px;
+  text-decoration: none;
+  transition: color var(--overgang);
+}
+
+.aside-link:hover {
+  color: var(--kleur-tekst);
+  text-decoration: underline;
+}
+
+/* ── Logo-tekst wrapper ── */
+.logo-tekst {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Lege toestand ── */
+.leeg {
+  text-align: center;
+  padding: var(--ruimte-2xl) var(--ruimte-lg);
+}
+
+.leeg-icoon {
+  font-size: 36px;
+  opacity: 0.3;
+  margin-bottom: var(--ruimte-sm);
+}
+
+.leeg-tekst {
+  font-size: 13px;
+  color: var(--kleur-tekst-zwak);
+}
+
+/* ── Laden ── */
+.laden {
+  color: var(--kleur-tekst-zwak);
+  font-size: 13px;
+  padding: var(--ruimte-xl);
+  text-align: center;
+}
+
+/* ── Aside: snelle info-blokken ── */
+.info-blok {
+  background: var(--kleur-oppervlak);
+  border: 1px solid var(--kleur-rand);
+  border-radius: var(--radius-md);
+  padding: var(--ruimte-md);
+}
+
+.info-blok-titel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--kleur-tekst-zwak);
+  margin-bottom: var(--ruimte-sm);
+  /* reset h3-standaard margin */
+  margin-top: 0;
+}
+
+.info-blok p {
+  font-size: 12px;
+  line-height: 1.6;
+}

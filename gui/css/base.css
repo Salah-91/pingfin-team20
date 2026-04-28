@@ -1,0 +1,108 @@
+/* ═══════════════════════════════════════════════════════════
+   base.css
+   CSS custom properties (variabelen), reset, typografie
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;700;800&display=swap');
+
+/* ── Custom properties ── */
+:root {
+  /* Kleuren */
+  --kleur-achtergrond:      #070b14;
+  --kleur-oppervlak:        #0d1422;
+  --kleur-verhoogd:         #121a2e;
+  --kleur-hover:            #1a2540;
+
+  --kleur-rand:             #1e2d47;
+  --kleur-rand-licht:       #263855;
+
+  --kleur-tekst:            #e2ecff;
+  --kleur-tekst-zacht:      #7c93b8;
+  --kleur-tekst-zwak:       #415472;
+
+  --kleur-accent:           #2d6ef7;
+  --kleur-accent-hover:     #1e5de0;
+  --kleur-accent-gloed:     rgba(45, 110, 247, 0.18);
+
+  --kleur-groen:            #22d3a0;
+  --kleur-groen-bg:         rgba(34, 211, 160, 0.10);
+  --kleur-rood:             #f25757;
+  --kleur-rood-bg:          rgba(242, 87, 87, 0.10);
+  --kleur-amber:            #f5a623;
+  --kleur-amber-bg:         rgba(245, 166, 35, 0.10);
+  --kleur-blauw-licht:      #60a5fa;
+
+  /* Afstanden */
+  --ruimte-xs:   4px;
+  --ruimte-sm:   8px;
+  --ruimte-md:   16px;
+  --ruimte-lg:   24px;
+  --ruimte-xl:   32px;
+  --ruimte-2xl:  48px;
+
+  /* Hoekrondingen */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   14px;
+  --radius-pill: 999px;
+
+  /* Schaduwen */
+  --schaduw-sm:    0 1px 4px rgba(0,0,0,0.4);
+  --schaduw-md:    0 4px 16px rgba(0,0,0,0.5);
+  --schaduw-gloed: 0 0 24px rgba(45, 110, 247, 0.12);
+
+  /* Animaties */
+  --overgang: 0.18s ease;
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Syne', 'Segoe UI', sans-serif;
+  background-color: var(--kleur-achtergrond);
+  color: var(--kleur-tekst);
+  min-height: 100vh;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typografie ── */
+h1, h2, h3, h4 {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--kleur-tekst);
+}
+
+h1 { font-size: 22px; }
+h2 { font-size: 17px; margin-bottom: var(--ruimte-md); }
+h3 { font-size: 14px; color: var(--kleur-tekst-zacht); margin-bottom: var(--ruimte-sm); }
+
+p {
+  color: var(--kleur-tekst-zacht);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+strong, b { color: var(--kleur-tekst); font-weight: 700; }
+
+code, .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85em;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--kleur-oppervlak); }
+::-webkit-scrollbar-thumb {
+  background: var(--kleur-rand-licht);
+  border-radius: var(--radius-pill);
+}
+::-webkit-scrollbar-thumb:hover { background: var(--kleur-accent); }
