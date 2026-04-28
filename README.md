@@ -99,8 +99,28 @@ Tabellen aangemaakt in `db/schema.sql`:
 
 - GitHub repo: https://github.com/Salah-91/pingfin-team20
 - Trello board: https://trello.com/b/jJkcLHd8/pingfin
-- Messaging diagram: `docs/messaging_diagram.png`
-- Analyse document: `docs/Task_A_Messaging_Scheme_Analyse.md`
+
+---
+
+## Lokaal opstarten (Dag 3)
+
+```bash
+# Vereiste: Docker Desktop geïnstalleerd
+
+cp api/.env.example api/.env       # Vul DB_PASS en CB_TOKEN in
+cp bank2/.env.example bank2/.env   # Vul DB2_PASS en CB_TOKEN2 in
+
+docker compose up --build
+```
+
+| Service | URL                   |
+|---------|-----------------------|
+| GUI     | http://localhost:8080 |
+| Bank1   | http://localhost:3000 |
+| Bank2   | http://localhost:3001 |
+
+Zie `docs/api.md` voor alle endpoints en curl-voorbeelden.  
+Zie `docs/dag3_testresultaten.md` voor testresultaten.
 
 ---
 

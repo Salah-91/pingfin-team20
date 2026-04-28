@@ -120,12 +120,13 @@
 								<tr>
 									<th scope="col">#</th>
 									<th scope="col">IBAN</th>
+									<th scope="col">Naam</th>
 									<th scope="col">Saldo</th>
 								</tr>
 							</thead>
 							<tbody id="accounts-rijen">
 								<tr>
-									<td colspan="3" class="laden">Laden…</td>
+									<td colspan="4" class="laden">Laden…</td>
 								</tr>
 							</tbody>
 						</table>
@@ -156,6 +157,36 @@
 							▶ Verwerk PO_NEW
 						</button>
 					</div>
+
+					<!-- Manuele PO -->
+					<details class="manuele-po-details">
+						<summary class="manuele-po-summary">✏️ Manuele PO aanmaken</summary>
+						<div class="formulier-rij formulier-rij--wrap">
+							<div class="formulier-groep">
+								<label for="m-oa-id">OA IBAN</label>
+								<input type="text" id="m-oa-id" placeholder="BE68539007547034">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-ba-id">BA IBAN</label>
+								<input type="text" id="m-ba-id" placeholder="BE43068999999501">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-bb-id">BB BIC</label>
+								<input type="text" id="m-bb-id" placeholder="GKCCBEBB">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-amount">Bedrag (€)</label>
+								<input type="number" id="m-amount" placeholder="50.00" step="0.01" min="0.01" max="500">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-message">Bericht</label>
+								<input type="text" id="m-message" placeholder="Manuele betaling">
+							</div>
+							<button type="button" class="knop knop-primair knop--zelf-onder" onclick="verstuurManuelePos()">
+								📨 Verstuur manuele PO
+							</button>
+						</div>
+					</details>
 
 					<div class="tabel-wrap">
 						<table>
@@ -263,15 +294,14 @@
 							<thead>
 								<tr>
 									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
 									<th scope="col">CB Code</th>
 									<th scope="col">BB Code</th>
-									<th scope="col">Datum CB</th>
+									<th scope="col">Ontvangen</th>
 								</tr>
 							</thead>
 							<tbody id="ack-in-rijen">
 								<tr>
-									<td colspan="5" class="laden">Laden…</td>
+									<td colspan="4" class="laden">Laden…</td>
 								</tr>
 							</tbody>
 						</table>
@@ -295,14 +325,13 @@
 							<thead>
 								<tr>
 									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
 									<th scope="col">BB Code</th>
-									<th scope="col">Datum BB</th>
+									<th scope="col">Verstuurd</th>
 								</tr>
 							</thead>
 							<tbody id="ack-uit-rijen">
 								<tr>
-									<td colspan="4" class="laden">Laden…</td>
+									<td colspan="3" class="laden">Laden…</td>
 								</tr>
 							</tbody>
 						</table>
