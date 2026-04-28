@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════
+   tabellen.css
+   Datatabelopmaak voor alle tabellen in de GUI
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Tabelomhulling ── */
+.tabel-wrap {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--kleur-rand);
+}
+
+/* ── Tabelwerkbalk (boven de tabel) ── */
+.tabel-werkbalk {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ruimte-md);
+  flex-wrap: wrap;
+  gap: var(--ruimte-sm);
+}
+
+.tabel-teller {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--kleur-tekst-zwak);
+}
+
+/* ── <table> ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+/* ── <thead> ── */
+thead { position: sticky; top: 0; z-index: 1; }
+
+th {
+  background: var(--kleur-verhoogd);
+  color: var(--kleur-tekst-zwak);
+  padding: 10px 14px;
+  text-align: left;
+  font-family: 'Syne', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  border-bottom: 1px solid var(--kleur-rand);
+  white-space: nowrap;
+}
+
+/* ── <tbody> ── */
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--kleur-rand);
+  color: var(--kleur-tekst-zacht);
+  vertical-align: middle;
+}
+
+tbody tr:last-child td { border-bottom: none; }
+
+tbody tr { transition: background var(--overgang); }
+
+tbody tr:hover td {
+  background: var(--kleur-hover);
+  color: var(--kleur-tekst);
+}
+
+/* ── Speciale celtypen ── */
+.cel-mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--kleur-tekst-zwak);
+}
+
+.cel-bedrag {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+  color: var(--kleur-groen);
+}
+
+.cel-datum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--kleur-tekst-zwak);
+  white-space: nowrap;
+}
+
+.cel-iban {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+
+/* ── Lege / laadtoestand in tabelrij ── */
+.rij-leeg td,
+tr .laden {
+  text-align: center;
+  padding: var(--ruimte-xl);
+  color: var(--kleur-tekst-zwak);
+  font-size: 13px;
+}
