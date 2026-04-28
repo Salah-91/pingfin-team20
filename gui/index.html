@@ -1,418 +1,255 @@
 <!DOCTYPE html>
 <html lang="nl">
-
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>PingFin — CEKVBE88</title>
-
-	<!-- Stijlbladen — elk met eigen verantwoordelijkheid -->
-	<link rel="stylesheet" href="css/base.css">
-	<link rel="stylesheet" href="css/layout.css">
-	<link rel="stylesheet" href="css/componenten.css">
-	<link rel="stylesheet" href="css/tabellen.css">
-	<link rel="stylesheet" href="css/formulieren.css">
+   <meta charset="UTF-8">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>PingFin Dashboard — Team 20</title>
+   <link rel="stylesheet" href="css/start.css">
+   <link rel="stylesheet" href="css/common.css">
+   <link rel="stylesheet" href="css/index.css">
 </head>
-
 <body>
+   <header class="header">
+      <p class="header__title">🏦 PingFin Dashboard — Team 20</p>
+      <nav class="bank-switcher">
+         <button class="bank-switcher__btn bank-switcher__btn--bank1" id="btn-b1" onclick="switchBank(1)">🔵 CEKVBE88</button>
+         <button class="bank-switcher__btn" id="btn-b2" onclick="switchBank(2)">🟢 HOMNBEB1</button>
+      </nav>
+   </header>
+   <nav class="nav">
+      <button class="nav__btn nav__btn--active" onclick="showSection('dashboard', this)">Dashboard</button>
+      <button class="nav__btn" onclick="showSection('accounts', this)">Accounts</button>
+      <button class="nav__btn" onclick="showSection('po-new', this)">PO Aanmaken</button>
+      <button class="nav__btn" onclick="showSection('po-out', this)">PO_OUT</button>
+      <button class="nav__btn" onclick="showSection('po-in', this)">PO_IN</button>
+      <button class="nav__btn" onclick="showSection('ack-in', this)">ACK_IN</button>
+      <button class="nav__btn" onclick="showSection('ack-out', this)">ACK_OUT</button>
+   </nav>
+   <main class="main">
+      <section class="section section--active" id="section-dashboard">
+         <p class="bank-indicator bank-indicator--bank1" id="bank-indicator">🔵 Actieve bank: CEKVBE88 (Bank 1)</p>
+         <div class="stats">
+            <div class="stats__item"><p class="stats__value" id="stat-accounts">-</p><p class="stats__label">Accounts</p></div>
+            <div class="stats__item"><p class="stats__value" id="stat-po-out">-</p><p class="stats__label">PO_OUT</p></div>
+            <div class="stats__item"><p class="stats__value" id="stat-po-in">-</p><p class="stats__label">PO_IN</p></div>
+            <div class="stats__item"><p class="stats__value" id="stat-ack-in">-</p><p class="stats__label">ACK_IN</p></div>
+         </div>
+         <div class="card">
+            <h2 class="card__title">ℹ️ Bank Info</h2>
+            <div id="info-content" class="loading">Laden...</div>
+         </div>
+      </section>
+      <section class="section" id="section-accounts">
+         <div class="card">
+            <h2 class="card__title">💳 Alle Accounts</h2>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>IBAN</th><th>Balans</th></tr></thead>
+                  <tbody id="accounts-body"><tr><td colspan="2" class="loading">Laden...</td></tr></tbody>
+               </table>
+            </div>
+         </div>
+      </section>
+      <section class="section" id="section-po-new">
+         <div class="card">
+            <h2 class="card__title">➕ Nieuwe Payment Orders</h2>
+            <div class="form-row">
+               <div class="form-group">
+                  <label for="gen-count">Aantal</label>
+                  <input type="number" id="gen-count" value="5" min="1" max="20" style="width:100px">
+               </div>
+               <button class="btn btn--primary" onclick="generatePOs()">Genereer PO's</button>
+               <button class="btn btn--success" onclick="addGeneratedPOs()">Voeg toe aan PO_NEW</button>
+               <button class="btn btn--danger" onclick="processPOs()">Verwerk PO_NEW</button>
+            </div>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OA</th><th>BB</th><th>BA</th><th>Bericht</th></tr></thead>
+                  <tbody id="po-new-body"><tr><td colspan="6" class="loading">Klik op Genereer</td></tr></tbody>
+               </table>
+            </div>
+            <div class="log" id="po-log"></div>
+         </div>
+      </section>
+      <section class="section" id="section-po-out">
+         <div class="card">
+            <h2 class="card__title">📤 PO_OUT — Uitgaande betalingen</h2>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OB code</th><th>CB code</th><th>BB code</th></tr></thead>
+                  <tbody id="po-out-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+               </table>
+            </div>
+         </div>
+      </section>
+      <section class="section" id="section-po-in">
+         <div class="card">
+            <h2 class="card__title">📥 PO_IN — Inkomende betalingen</h2>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>PO_ID</th><th>Bedrag</th><th>OB</th><th>CB code</th><th>BB code</th></tr></thead>
+                  <tbody id="po-in-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+               </table>
+            </div>
+         </div>
+      </section>
+      <section class="section" id="section-ack-in">
+         <div class="card">
+            <h2 class="card__title">✅ ACK_IN — Ontvangen bevestigingen</h2>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>PO_ID</th><th>Bedrag</th><th>CB code</th><th>BB code</th><th>Datum</th></tr></thead>
+                  <tbody id="ack-in-body"><tr><td colspan="5" class="loading">Laden...</td></tr></tbody>
+               </table>
+            </div>
+         </div>
+      </section>
+      <section class="section" id="section-ack-out">
+         <div class="card">
+            <h2 class="card__title">📨 ACK_OUT — Verstuurde bevestigingen</h2>
+            <div class="table-wrap">
+               <table class="table">
+                  <thead><tr><th>PO_ID</th><th>Bedrag</th><th>BB code</th><th>Datum</th></tr></thead>
+                  <tbody id="ack-out-body"><tr><td colspan="4" class="loading">Laden...</td></tr></tbody>
+               </table>
+            </div>
+         </div>
+      </section>
+   </main>
+   <footer class="footer">
+      <p>PingFin Team 20 &mdash; CEKVBE88 &amp; HOMNBEB1 &mdash; Odisee 2025-2026</p>
+   </footer>
+   <script>
+      const BANKS = {
+         1: { bic: 'CEKVBE88', label: '🔵 Actieve bank: CEKVBE88 (Bank 1)', indicatorClass: 'bank-indicator--bank1', api: 'http://localhost:3000/api' },
+         2: { bic: 'HOMNBEB1', label: '🟢 Actieve bank: HOMNBEB1 (Bank 2)', indicatorClass: 'bank-indicator--bank2', api: 'http://localhost:3001/api' }
+      };
+      let activeBank = 1;
+      let generatedPOs = [];
 
-	<div class="pagina">
+      function switchBank(n) {
+         activeBank = n;
+         const b = BANKS[n];
+         document.getElementById('btn-b1').className = 'bank-switcher__btn' + (n === 1 ? ' bank-switcher__btn--bank1' : '');
+         document.getElementById('btn-b2').className = 'bank-switcher__btn' + (n === 2 ? ' bank-switcher__btn--bank2' : '');
+         const ind = document.getElementById('bank-indicator');
+         ind.className = 'bank-indicator ' + b.indicatorClass;
+         ind.textContent = b.label;
+         loadDashboard();
+      }
 
-		<!-- ════════════════════════════════════
-		     HEADER
-		════════════════════════════════════ -->
-		<header class="siteheader">
-			<div class="logo-blok">
-				<!-- span i.p.v. div: dit is inline tekst/icoon, geen blok -->
-				<span class="logo-icoon" aria-hidden="true">🏦</span>
-				<div class="logo-tekst">
-					<!-- p i.p.v. div: dit zijn tekstparagrafen -->
-					<p class="sitenaam">PingFin</p>
-					<p class="siteondertitel">Bank Dashboard — Team 20</p>
-				</div>
-			</div>
-			<div class="header-rechts">
-				<!-- span i.p.v. div: inline elementen -->
-				<span class="status-lamp" role="img" title="API verbonden" aria-label="API actief"></span>
-				<span class="bic-label">BIC: CEKVBE88</span>
-			</div>
-		</header>
+      function showSection(name, btn) {
+         document.querySelectorAll('.section').forEach(s => s.classList.remove('section--active'));
+         document.querySelectorAll('.nav__btn').forEach(b => b.classList.remove('nav__btn--active'));
+         document.getElementById('section-' + name).classList.add('section--active');
+         btn.classList.add('nav__btn--active');
+         loadSection(name);
+      }
 
-		<!-- ════════════════════════════════════
-		     NAV
-		════════════════════════════════════ -->
-		<nav class="sitenav" aria-label="Hoofdnavigatie">
-			<!-- type="button" verplicht: voorkomt onbedoeld form-submit gedrag -->
-			<button type="button" class="actief" onclick="toonSectie('dashboard', this)" aria-current="page">
-				📊 Dashboard
-			</button>
-			<button type="button" onclick="toonSectie('accounts', this)">
-				💳 Accounts
-			</button>
-			<button type="button" onclick="toonSectie('po-nieuw', this)">
-				➕ PO Aanmaken
-			</button>
-			<button type="button" onclick="toonSectie('po-uit', this)">
-				📤 PO_OUT
-			</button>
-			<button type="button" onclick="toonSectie('po-in', this)">
-				📥 PO_IN
-			</button>
-			<button type="button" onclick="toonSectie('ack-in', this)">
-				✅ ACK_IN
-			</button>
-			<button type="button" onclick="toonSectie('ack-uit', this)">
-				📨 ACK_OUT
-			</button>
-		</nav>
+      function badge(code) {
+         if (!code) return '<span class="badge badge--pending">—</span>';
+         if (code === 'OK' || code === '2000') return '<span class="badge badge--ok">' + code + '</span>';
+         return '<span class="badge badge--error">' + code + '</span>';
+      }
 
-		<!-- ════════════════════════════════════
-		     MAIN
-		════════════════════════════════════ -->
-		<main class="sitemain">
+      async function api(path) {
+         const r = await fetch(BANKS[activeBank].api + path);
+         return r.json();
+      }
 
-			<!-- ── Dashboard ── -->
-			<section id="sectie-dashboard" class="sectie actief" aria-labelledby="titel-dashboard">
-				<h1 class="paginatitel" id="titel-dashboard">📊 Dashboard</h1>
+      function loadSection(name) {
+         if (name === 'dashboard') loadDashboard();
+         if (name === 'accounts') loadAccounts();
+         if (name === 'po-out') loadPoOut();
+         if (name === 'po-in') loadPoIn();
+         if (name === 'ack-in') loadAckIn();
+         if (name === 'ack-out') loadAckOut();
+      }
 
-				<div class="statistieken-raster">
-					<div class="statistiek-kaart">
-						<div class="statistiek-waarde" id="stat-accounts">—</div>
-						<div class="statistiek-label">Accounts</div>
-					</div>
-					<div class="statistiek-kaart">
-						<div class="statistiek-waarde" id="stat-po-uit">—</div>
-						<div class="statistiek-label">PO_OUT</div>
-					</div>
-					<div class="statistiek-kaart">
-						<div class="statistiek-waarde" id="stat-po-in">—</div>
-						<div class="statistiek-label">PO_IN</div>
-					</div>
-					<div class="statistiek-kaart">
-						<div class="statistiek-waarde" id="stat-ack-in">—</div>
-						<div class="statistiek-label">ACK_IN</div>
-					</div>
-				</div>
+      async function loadDashboard() {
+         try {
+            const info = await api('/info');
+            const d = info.data;
+            document.getElementById('info-content').innerHTML =
+               '<p><strong>Bank:</strong> ' + d.bank_name + '</p>' +
+               '<p><strong>BIC:</strong> ' + d.bic + '</p>' +
+               '<p><strong>Team:</strong> ' + d.team + '</p>';
+            const [acc, po_out, po_in, ack_in] = await Promise.all([api('/accounts'), api('/po_out'), api('/po_in'), api('/ack_in')]);
+            document.getElementById('stat-accounts').textContent = (acc.data || []).length;
+            document.getElementById('stat-po-out').textContent = (po_out.data || []).length;
+            document.getElementById('stat-po-in').textContent = (po_in.data || []).length;
+            document.getElementById('stat-ack-in').textContent = (ack_in.data || []).length;
+         } catch (e) {
+            document.getElementById('info-content').textContent = 'API niet bereikbaar (server draait niet lokaal)';
+         }
+      }
 
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">ℹ️ Bank Info</h2>
-						<button type="button" class="knop knop-geest" onclick="laadDashboard()">↻ Vernieuwen</button>
-					</div>
-					<div id="info-inhoud" class="laden">Laden…</div>
-				</article>
-			</section>
+      async function loadAccounts() {
+         const data = await api('/accounts');
+         const tbody = document.getElementById('accounts-body');
+         if (!data.data || !data.data.length) { tbody.innerHTML = '<tr><td colspan="2">Geen accounts</td></tr>'; return; }
+         tbody.innerHTML = data.data.map(a => '<tr><td>' + a.id + '</td><td>€' + parseFloat(a.balance).toFixed(2) + '</td></tr>').join('');
+      }
 
-			<!-- ── Accounts ── -->
-			<section id="sectie-accounts" class="sectie" aria-labelledby="titel-accounts">
-				<h1 class="paginatitel" id="titel-accounts">💳 Accounts</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">Alle Rekeningen</h2>
-						<div class="tabel-werkbalk tabel-werkbalk--inline">
-							<span class="tabel-teller" id="accounts-teller"></span>
-							<button type="button" class="knop knop-geest" onclick="laadAccounts()">↻ Vernieuwen</button>
-						</div>
-					</div>
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">#</th>
-									<th scope="col">IBAN</th>
-									<th scope="col">Saldo</th>
-								</tr>
-							</thead>
-							<tbody id="accounts-rijen">
-								<tr>
-									<td colspan="3" class="laden">Laden…</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</article>
-			</section>
+      async function generatePOs() {
+         const count = document.getElementById('gen-count').value;
+         const data = await api('/po_new/generate?count=' + count);
+         generatedPOs = data.data || [];
+         document.getElementById('po-new-body').innerHTML = generatedPOs.map(p =>
+            '<tr><td>' + p.po_id + '</td><td>€' + parseFloat(p.po_amount).toFixed(2) + '</td><td>' + p.oa_id + '</td><td>' + p.bb_id + '</td><td>' + p.ba_id + '</td><td>' + p.po_message + '</td></tr>'
+         ).join('');
+         log('ok', generatedPOs.length + ' POs gegenereerd voor ' + BANKS[activeBank].bic);
+      }
 
-			<!-- ── PO Aanmaken ── -->
-			<section id="sectie-po-nieuw" class="sectie" aria-labelledby="titel-po-nieuw">
-				<h1 class="paginatitel" id="titel-po-nieuw">➕ Payment Orders Aanmaken</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">PO Generator</h2>
-					</div>
+      async function addGeneratedPOs() {
+         if (!generatedPOs.length) { log('error', 'Geen POs gegenereerd'); return; }
+         const r = await fetch(BANKS[activeBank].api + '/po_new/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: generatedPOs }) });
+         const data = await r.json();
+         log(data.ok ? 'ok' : 'error', data.message);
+      }
 
-					<div class="formulier-rij">
-						<div class="formulier-groep">
-							<label for="po-aantal">Aantal PO's</label>
-							<input type="number" id="po-aantal" value="5" min="1" max="20">
-						</div>
-						<button type="button" class="knop knop-primair" onclick="genereerPos()">
-							⚡ Genereer
-						</button>
-						<button type="button" class="knop knop-succes" onclick="slaPoNieuwOp()">
-							💾 Opslaan in PO_NEW
-						</button>
-						<button type="button" class="knop knop-gevaar" onclick="verwerkPoNieuw()">
-							▶ Verwerk PO_NEW
-						</button>
-					</div>
+      async function processPOs() {
+         const data = await api('/po_new/process');
+         log(data.ok ? 'ok' : 'error', data.message);
+      }
 
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
-									<th scope="col">OA (IBAN)</th>
-									<th scope="col">BB (BIC)</th>
-									<th scope="col">BA (IBAN)</th>
-									<th scope="col">Bericht</th>
-								</tr>
-							</thead>
-							<tbody id="po-nieuw-rijen">
-								<tr class="rij-leeg">
-									<td colspan="6">Klik op Genereer om PO's aan te maken</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
+      async function loadPoOut() {
+         const data = await api('/po_out');
+         const tbody = document.getElementById('po-out-body');
+         if (!data.data || !data.data.length) { tbody.innerHTML = '<tr><td colspan="5">Geen data</td></tr>'; return; }
+         tbody.innerHTML = data.data.map(p => '<tr><td>' + p.po_id + '</td><td>€' + parseFloat(p.po_amount).toFixed(2) + '</td><td>' + badge(p.ob_code) + '</td><td>' + badge(p.cb_code) + '</td><td>' + badge(p.bb_code) + '</td></tr>').join('');
+      }
 
-					<div class="log-paneel" id="po-log" role="log" aria-live="polite" aria-label="Activiteitenlog">
-					</div>
-				</article>
-			</section>
+      async function loadPoIn() {
+         const data = await api('/po_in');
+         const tbody = document.getElementById('po-in-body');
+         if (!data.data || !data.data.length) { tbody.innerHTML = '<tr><td colspan="5">Geen inkomende POs</td></tr>'; return; }
+         tbody.innerHTML = data.data.map(p => '<tr><td>' + p.po_id + '</td><td>€' + parseFloat(p.po_amount).toFixed(2) + '</td><td>' + p.ob_id + '</td><td>' + badge(p.cb_code) + '</td><td>' + badge(p.bb_code) + '</td></tr>').join('');
+      }
 
-			<!-- ── PO_OUT ── -->
-			<section id="sectie-po-uit" class="sectie" aria-labelledby="titel-po-uit">
-				<h1 class="paginatitel" id="titel-po-uit">📤 PO_OUT — Uitgaande Betalingen</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">Uitgaande Payment Orders</h2>
-						<div class="kaart-acties">
-							<span class="tabel-teller" id="po-uit-teller"></span>
-							<button type="button" class="knop knop-geest" onclick="laadPoUit()">↻ Vernieuwen</button>
-						</div>
-					</div>
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
-									<th scope="col">Datum</th>
-									<th scope="col">OB Code</th>
-									<th scope="col">CB Code</th>
-									<th scope="col">BB Code</th>
-								</tr>
-							</thead>
-							<tbody id="po-uit-rijen">
-								<tr>
-									<td colspan="6" class="laden">Laden…</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</article>
-			</section>
+      async function loadAckIn() {
+         const data = await api('/ack_in');
+         const tbody = document.getElementById('ack-in-body');
+         if (!data.data || !data.data.length) { tbody.innerHTML = '<tr><td colspan="5">Geen ACKs</td></tr>'; return; }
+         tbody.innerHTML = data.data.map(a => '<tr><td>' + a.po_id + '</td><td>€' + parseFloat(a.po_amount).toFixed(2) + '</td><td>' + badge(a.cb_code) + '</td><td>' + badge(a.bb_code) + '</td><td>' + (a.cb_datetime || '—') + '</td></tr>').join('');
+      }
 
-			<!-- ── PO_IN ── -->
-			<section id="sectie-po-in" class="sectie" aria-labelledby="titel-po-in">
-				<h1 class="paginatitel" id="titel-po-in">📥 PO_IN — Inkomende Betalingen</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">Inkomende Payment Orders</h2>
-						<div class="kaart-acties">
-							<span class="tabel-teller" id="po-in-teller"></span>
-							<button type="button" class="knop knop-geest" onclick="laadPoIn()">↻ Vernieuwen</button>
-						</div>
-					</div>
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
-									<th scope="col">OB (BIC)</th>
-									<th scope="col">CB Code</th>
-									<th scope="col">BB Code</th>
-								</tr>
-							</thead>
-							<tbody id="po-in-rijen">
-								<tr>
-									<td colspan="5" class="laden">Laden…</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</article>
-			</section>
+      async function loadAckOut() {
+         const data = await api('/ack_out');
+         const tbody = document.getElementById('ack-out-body');
+         if (!data.data || !data.data.length) { tbody.innerHTML = '<tr><td colspan="4">Geen ACKs</td></tr>'; return; }
+         tbody.innerHTML = data.data.map(a => '<tr><td>' + a.po_id + '</td><td>€' + parseFloat(a.po_amount).toFixed(2) + '</td><td>' + badge(a.bb_code) + '</td><td>' + (a.bb_datetime || '—') + '</td></tr>').join('');
+      }
 
-			<!-- ── ACK_IN ── -->
-			<section id="sectie-ack-in" class="sectie" aria-labelledby="titel-ack-in">
-				<h1 class="paginatitel" id="titel-ack-in">✅ ACK_IN — Ontvangen Bevestigingen</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">Inkomende Acknowledgements</h2>
-						<div class="kaart-acties">
-							<span class="tabel-teller" id="ack-in-teller"></span>
-							<button type="button" class="knop knop-geest" onclick="laadAckIn()">↻ Vernieuwen</button>
-						</div>
-					</div>
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
-									<th scope="col">CB Code</th>
-									<th scope="col">BB Code</th>
-									<th scope="col">Datum CB</th>
-								</tr>
-							</thead>
-							<tbody id="ack-in-rijen">
-								<tr>
-									<td colspan="5" class="laden">Laden…</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</article>
-			</section>
+      function log(type, msg) {
+         const el = document.getElementById('po-log');
+         const div = document.createElement('div');
+         div.className = 'log__entry log__entry--' + type;
+         div.textContent = '[' + new Date().toLocaleTimeString() + '] [' + BANKS[activeBank].bic + '] ' + msg;
+         el.prepend(div);
+      }
 
-			<!-- ── ACK_OUT ── -->
-			<section id="sectie-ack-uit" class="sectie" aria-labelledby="titel-ack-uit">
-				<h1 class="paginatitel" id="titel-ack-uit">📨 ACK_OUT — Verstuurde Bevestigingen</h1>
-				<article class="kaart">
-					<div class="kaart-header">
-						<h2 class="kaart-titel">Uitgaande Acknowledgements</h2>
-						<div class="kaart-acties">
-							<span class="tabel-teller" id="ack-uit-teller"></span>
-							<button type="button" class="knop knop-geest" onclick="laadAckUit()">↻ Vernieuwen</button>
-						</div>
-					</div>
-					<div class="tabel-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th scope="col">PO_ID</th>
-									<th scope="col">Bedrag</th>
-									<th scope="col">BB Code</th>
-									<th scope="col">Datum BB</th>
-								</tr>
-							</thead>
-							<tbody id="ack-uit-rijen">
-								<tr>
-									<td colspan="4" class="laden">Laden…</td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-				</article>
-			</section>
-
-		</main>
-
-		<!-- ════════════════════════════════════
-		     ASIDE
-		════════════════════════════════════ -->
-		<aside class="siteaside" aria-label="Snelle informatie">
-
-			<div class="info-blok">
-				<!-- h3 i.p.v. div: dit is een sectietitel -->
-				<h3 class="info-blok-titel">🔑 Verbinding</h3>
-				<!-- info-rij--compact: kleinere padding voor aside (zie componenten.css) -->
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">BIC</span>
-					<span class="info-waarde">CEKVBE88</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">Team</span>
-					<span class="info-waarde">Team 20</span>
-				</div>
-				<!-- info-rij--compact info-rij--laatste i.p.v. inline border:none -->
-				<div class="info-rij info-rij--compact info-rij--laatste">
-					<span class="info-label">Coach</span>
-					<!-- info-waarde--klein i.p.v. inline font-size:12px -->
-					<span class="info-waarde info-waarde--klein">Rogier v/d Linde</span>
-				</div>
-			</div>
-
-			<div class="info-blok">
-				<h3 class="info-blok-titel">📖 SEPA-afkortingen</h3>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">OB</span>
-					<span class="info-waarde info-waarde--klein">Originating Bank</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">CB</span>
-					<span class="info-waarde info-waarde--klein">Clearing Bank</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">BB</span>
-					<span class="info-waarde info-waarde--klein">Beneficiary Bank</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">TX</span>
-					<span class="info-waarde info-waarde--klein">Transaction</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">PO</span>
-					<span class="info-waarde info-waarde--klein">Payment Order</span>
-				</div>
-				<div class="info-rij info-rij--compact">
-					<span class="info-label">OA</span>
-					<span class="info-waarde info-waarde--klein">Originator Account</span>
-				</div>
-				<div class="info-rij info-rij--compact info-rij--laatste">
-					<span class="info-label">BA</span>
-					<span class="info-waarde info-waarde--klein">Beneficiary Account</span>
-				</div>
-			</div>
-
-			<div class="info-blok">
-				<h3 class="info-blok-titel">🔗 Externe links</h3>
-				<!-- aside-link klasse i.p.v. inline color/font-size/text-decoration -->
-				<!-- rel="noopener noreferrer" verplicht bij target="_blank" (beveiliging) -->
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://stevenop.be/pingfin/api/v2/" target="_blank"
-						rel="noopener noreferrer">
-						CB API →
-					</a>
-				</p>
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://github.com/Salah-91/pingfin-team20" target="_blank"
-						rel="noopener noreferrer">
-						GitHub repo →
-					</a>
-				</p>
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://trello.com" target="_blank" rel="noopener noreferrer">
-						Trello →
-					</a>
-				</p>
-			</div>
-
-		</aside>
-
-		<!-- ════════════════════════════════════
-		     FOOTER
-		════════════════════════════════════ -->
-		<footer class="sitefooter">
-			<span>© 2026 PingFin — Team 20 · Odisee</span>
-			<nav class="footer-links" aria-label="Voettekstnavigatie">
-				<!-- rel="noopener noreferrer" verplicht bij target="_blank" -->
-				<a href="https://stevenop.be/pingfin/api/v2/" target="_blank" rel="noopener noreferrer">CB API</a>
-				<a href="https://github.com/Salah-91/pingfin-team20" target="_blank"
-					rel="noopener noreferrer">GitHub</a>
-				<a href="https://trello.com" target="_blank" rel="noopener noreferrer">Trello</a>
-			</nav>
-		</footer>
-
-	</div><!-- /pagina -->
-
-	<!-- JavaScript — apart bestand -->
-	<script src="js/app.js"></script>
-
+      loadDashboard();
+   </script>
 </body>
-
 </html>
