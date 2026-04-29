@@ -2,14 +2,16 @@
 
 /* ─────────────────────────────────────────────
    Bank-configuratie
-   Beide banken delen /api als prefix.
-   • localhost:8080 (nginx)  → /bank1/api & /bank2/api  (reverse proxy)
-   • bank-domain (server)    → /api  (single bank, GUI mee gehost door server.js)
-   • localhost direct         → http://localhost:3000/api & 3001/api
+   • localhost:8080 (nginx)         → /bank1/api & /bank2/api (reverse proxy)
+   • localhost:3000 / 3001 direct   → /api van die ene bank
+   • Railway / productie            → beide Railway-domeinen, dropdown wisselt
 ─────────────────────────────────────────────── */
+const RAILWAY_BANK1 = 'https://pingfin-team20-production.up.railway.app';
+const RAILWAY_BANK2 = 'https://pingfin-team20-bank2-production.up.railway.app';
+
 function buildBanken() {
   const o = window.location.origin;
-  const isNginx     = o.endsWith(':8080');
+  const isNginx       = o.endsWith(':8080');
   const isLocalDirect = o.match(/localhost:(3000|3001)$/);
 
   if (isNginx) {
@@ -19,7 +21,6 @@ function buildBanken() {
     };
   }
   if (isLocalDirect) {
-    // Direct op een banken-server: enkel die ene bank tonen
     const isBank2 = o.endsWith(':3001');
     return {
       [isBank2 ? 'bank2' : 'bank1']: {
@@ -30,9 +31,10 @@ function buildBanken() {
       }
     };
   }
-  // Production / Railway: GUI wordt door dezelfde server gehost
+  // Productie / Railway: beide banken tonen, ongeacht welk domein de gebruiker bezoekt
   return {
-    bank1: { naam: 'Bank — deze instance', bic: '?', apiBase: o + '/api', heeftManuelePo: true },
+    bank1: { naam: 'Bank1', bic: 'CEKVBE88', apiBase: RAILWAY_BANK1 + '/api', heeftManuelePo: true },
+    bank2: { naam: 'Bank2', bic: 'HOMNBEB1', apiBase: RAILWAY_BANK2 + '/api', heeftManuelePo: true },
   };
 }
 

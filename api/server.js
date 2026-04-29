@@ -8,8 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
-// Health
-app.get('/', (req, res) => {
+// Health (JSON) op een aparte path zodat de GUI op '/' kan staan
+app.get('/health', (req, res) => {
   res.json({ ok: true, status: 200, message: `PingFin Bank ${cfg.bic} (${cfg.bankName}) draait`, data: null });
 });
 
@@ -23,9 +23,10 @@ app.use('/api', require('./routes/ack'));
 app.use('/api', require('./routes/misc'));
 app.use('/api', require('./routes/jobs'));
 
-// GUI (static) — wordt mee gehost zodat één Railway-service volstaat
+// GUI (static) — wordt mee gehost zodat één Railway-service volstaat.
+// Express.static serveert gui/index.html voor GET '/' en alle andere statische assets.
 const guiDir = path.resolve(__dirname, '../gui');
-app.use('/', express.static(guiDir, { extensions: ['html'] }));
+app.use('/', express.static(guiDir, { extensions: ['html'], index: 'index.html' }));
 
 // 404
 app.use((req, res) => {
