@@ -12,6 +12,7 @@
 	<link rel="stylesheet" href="css/componenten.css">
 	<link rel="stylesheet" href="css/tabellen.css">
 	<link rel="stylesheet" href="css/formulieren.css">
+	<link rel="stylesheet" href="css/notifications.css">
 </head>
 
 <body>
@@ -206,20 +207,28 @@
 					</div>
 
 					<!-- Manuele PO -->
-					<details class="manuele-po-details">
+					<details class="manuele-po-details" id="manuele-po-details" ontoggle="bijOpenenManuelePo()">
 						<summary class="manuele-po-summary">✏️ Manuele PO aanmaken</summary>
 						<div class="formulier-rij formulier-rij--wrap">
 							<div class="formulier-groep">
-								<label for="m-oa-id">OA IBAN</label>
-								<input type="text" id="m-oa-id" placeholder="BE68539007547034">
+								<label for="m-oa-id">OA — Eigen rekening</label>
+								<select id="m-oa-id" onchange="updateOaSaldo()">
+									<option value="">— laden… —</option>
+								</select>
+								<small id="m-oa-saldo" class="form-hint">saldo: —</small>
 							</div>
 							<div class="formulier-groep">
-								<label for="m-ba-id">BA IBAN</label>
-								<input type="text" id="m-ba-id" placeholder="BE43068999999501">
+								<label for="m-bb-id">BB — Ontvangende bank</label>
+								<select id="m-bb-id" onchange="bijBbWijziging()">
+									<option value="">— laden… —</option>
+								</select>
+								<small id="m-bb-naam" class="form-hint">—</small>
 							</div>
 							<div class="formulier-groep">
-								<label for="m-bb-id">BB BIC</label>
-								<input type="text" id="m-bb-id" placeholder="GKCCBEBB">
+								<label for="m-ba-id">BA IBAN — Ontvanger</label>
+								<input type="text" id="m-ba-id" list="m-ba-suggesties" placeholder="BE43068999999501">
+								<datalist id="m-ba-suggesties"></datalist>
+								<small class="form-hint">tip: kies een eigen IBAN bij interne PO</small>
 							</div>
 							<div class="formulier-groep">
 								<label for="m-amount">Bedrag (€)</label>
@@ -613,6 +622,15 @@
 		</footer>
 
 	</div><!-- /pagina -->
+
+	<!-- Live notificaties — toasts rechtsonder -->
+	<div id="toast-container" class="toast-container" aria-live="polite" aria-atomic="false"></div>
+
+	<!-- Auto-poll status indicator -->
+	<div id="poll-indicator" class="poll-indicator" title="Auto-refresh actief">
+		<span class="poll-puls"></span>
+		<span class="poll-tekst">Live · elke 10s</span>
+	</div>
 
 	<!-- JavaScript — apart bestand -->
 	<script src="js/app.js"></script>

@@ -23,18 +23,91 @@ function buildBanken() {
       }
     };
   }
-  // Productie / Railway: beide banken tonen, ongeacht welk domein de gebruiker bezoekt
   return {
     bank1: { naam: 'Bank1', bic: 'CEKVBE88', apiBase: RAILWAY_BANK1 + '/api', heeftManuelePo: true },
     bank2: { naam: 'Bank2', bic: 'HOMNBEB1', apiBase: RAILWAY_BANK2 + '/api', heeftManuelePo: true },
   };
 }
 
-const BANKEN = buildBanken();
+const BANKEN     = buildBanken();
 const EERSTE_KEY = Object.keys(BANKEN)[0];
+const POLL_INTERVAL_MS = 10_000;          // auto-refresh elke 10s
+const TOAST_DUUR_MS    = 7_000;           // toasts blijven 7s zichtbaar
 
-let huidigeBank    = BANKEN[EERSTE_KEY];
-let gegenereerdePos = [];
+let huidigeBank      = BANKEN[EERSTE_KEY];
+let gegenereerdePos  = [];
+let pollTimerId      = null;
+
+/* Snapshots voor diff-detectie. Elke key is een set van po_id's of een
+   account-IBAN→saldo map. Bij eerste run vullen we ze stilletjes (geen toasts). */
+const snapshot = {
+  poIn:   new Set(),
+  poOut:  new Map(),    // po_id → status
+  ackIn:  new Set(),
+  ackOut: new Set(),
+  saldi:  new Map(),    // iban → balance
+  geinitialiseerd: false,
+};
+
+/* Cache voor dropdowns */
+const cache = {
+  accounts: [],
+  banks:    [],
+};
+
+/* Ongelezen events per sectie (voor pulse-badge in nav) */
+const ongelezen = new Set();
+
+/* ─────────────────────────────────────────────
+   Toast notifications
+─────────────────────────────────────────────── */
+const TOAST_ICONEN = { ok: '✅', fout: '⚠️', info: 'ℹ️', waarschuwing: '🔔' };
+
+function toast(type, titel, tekst) {
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = `toast toast--${type}`;
+  el.innerHTML = `
+    <span class="toast-icoon">${TOAST_ICONEN[type] ?? '🔔'}</span>
+    <div class="toast-inhoud">
+      <p class="toast-titel">${titel}</p>
+      ${tekst ? `<p class="toast-tekst">${escapeHtml(tekst)}</p>` : ''}
+      <p class="toast-tijd">${new Date().toLocaleTimeString('nl-BE')}</p>
+    </div>`;
+  el.addEventListener('click', () => verwijderToast(el));
+  container.appendChild(el);
+  setTimeout(() => verwijderToast(el), TOAST_DUUR_MS);
+}
+
+function verwijderToast(el) {
+  if (!el || !el.parentNode) return;
+  el.classList.add('toast--leaving');
+  setTimeout(() => el.parentNode && el.parentNode.removeChild(el), 400);
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+}
+
+/* ─────────────────────────────────────────────
+   Nav badge — pulse bij ongelezen events
+─────────────────────────────────────────────── */
+function markeerNieuw(sectie) {
+  ongelezen.add(sectie);
+  document.querySelectorAll('nav.sitenav button').forEach(b => {
+    const onclickAttr = b.getAttribute('onclick') || '';
+    if (onclickAttr.includes(`'${sectie}'`)) b.classList.add('heeft-nieuwe');
+  });
+}
+
+function leesSectie(sectie) {
+  ongelezen.delete(sectie);
+  document.querySelectorAll('nav.sitenav button').forEach(b => {
+    const onclickAttr = b.getAttribute('onclick') || '';
+    if (onclickAttr.includes(`'${sectie}'`)) b.classList.remove('heeft-nieuwe');
+  });
+}
 
 /* ─────────────────────────────────────────────
    Navigatie
@@ -44,6 +117,7 @@ function toonSectie(naam, knop) {
   document.querySelectorAll('nav.sitenav button').forEach(b => b.classList.remove('actief'));
   document.getElementById('sectie-' + naam).classList.add('actief');
   knop.classList.add('actief');
+  leesSectie(naam);
   laadSectie(naam);
 }
 
@@ -71,28 +145,22 @@ function wisselBank(bankKey) {
   huidigeBank = BANKEN[bankKey];
   localStorage.setItem('pingfin_bank', bankKey);
 
-  const bicLabel = document.getElementById('header-bic-label');
-  if (bicLabel) bicLabel.textContent = 'BIC: ' + huidigeBank.bic;
-
-  const asideBic = document.getElementById('aside-bic-waarde');
-  if (asideBic) asideBic.textContent = huidigeBank.bic;
-
-  const asideNaam = document.getElementById('aside-banknaam-waarde');
-  if (asideNaam) asideNaam.textContent = huidigeBank.naam;
-
+  document.getElementById('header-bic-label').textContent = 'BIC: ' + huidigeBank.bic;
+  document.getElementById('aside-bic-waarde').textContent = huidigeBank.bic;
+  document.getElementById('aside-banknaam-waarde').textContent = huidigeBank.naam;
   document.title = 'PingFin — ' + huidigeBank.bic;
 
-  // Reset BB BIC naar eigen BIC als het leeg is of nog een eigen BIC bevat
-  const bbVeld = document.getElementById('m-bb-id');
-  if (bbVeld) {
-    bbVeld.placeholder = huidigeBank.bic;
-    const eigenBics = Object.values(BANKEN).map(b => b.bic);
-    if (!bbVeld.value || eigenBics.includes(bbVeld.value)) {
-      bbVeld.value = huidigeBank.bic;
-    }
-  }
+  // Reset diff-snapshots: andere bank, andere data
+  snapshot.poIn.clear();
+  snapshot.poOut.clear();
+  snapshot.ackIn.clear();
+  snapshot.ackOut.clear();
+  snapshot.saldi.clear();
+  snapshot.geinitialiseerd = false;
 
-  // Herlaad actieve sectie
+  // Refresh caches voor dropdowns
+  laadDropdownData();
+
   const actieveSectie = document.querySelector('.sectie.actief');
   if (actieveSectie) laadSectie(actieveSectie.id.replace('sectie-', ''));
 }
@@ -100,38 +168,256 @@ function wisselBank(bankKey) {
 function initialiseerBankSelector() {
   const opgeslagen = localStorage.getItem('pingfin_bank');
   const bankKey    = (opgeslagen && BANKEN[opgeslagen]) ? opgeslagen : EERSTE_KEY;
-
-  const selector = document.getElementById('bank-selector');
+  const selector   = document.getElementById('bank-selector');
   if (selector) {
-    // Verwijder opties voor banken die niet beschikbaar zijn (bv. single-instance prod)
     Array.from(selector.options).forEach(opt => {
       if (!BANKEN[opt.value]) opt.remove();
     });
     selector.value = bankKey;
     if (Object.keys(BANKEN).length < 2) selector.style.display = 'none';
   }
-
   wisselBank(bankKey);
-
-  // Probeer BIC/Bankname op te halen als ze nog onbekend zijn (single-instance fallback)
-  if (huidigeBank.bic === '?') {
-    fetch(huidigeBank.apiBase + '/info').then(r => r.json()).then(j => {
-      if (j?.data?.bic) {
-        huidigeBank.bic = j.data.bic;
-        huidigeBank.naam = j.data.bank_name || huidigeBank.naam;
-        wisselBank(EERSTE_KEY);
-      }
-    }).catch(() => {});
-  }
 }
 
 /* ─────────────────────────────────────────────
-   API-hulpfunctie
+   API hulp
 ─────────────────────────────────────────────── */
 async function apiFetch(pad, opties) {
   const antwoord = await fetch(huidigeBank.apiBase + pad, opties);
   if (!antwoord.ok) throw new Error(`HTTP ${antwoord.status}`);
   return antwoord.json();
+}
+
+function normaliseer(res) {
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.data)) return res.data;
+  return [];
+}
+
+/* ─────────────────────────────────────────────
+   Dropdown-data laden (eigen accounts + CB.banks)
+─────────────────────────────────────────────── */
+async function laadDropdownData() {
+  try {
+    const [accounts, banks] = await Promise.all([
+      apiFetch('/accounts').then(normaliseer).catch(() => []),
+      apiFetch('/banks').then(normaliseer).catch(() => []),
+    ]);
+    cache.accounts = accounts;
+    cache.banks    = banks;
+    vulManueleDropdowns();
+  } catch (err) {
+    console.warn('[dropdowns] laden mislukt:', err);
+  }
+}
+
+function vulManueleDropdowns() {
+  // OA: eigen accounts met saldo
+  const oaSel = document.getElementById('m-oa-id');
+  if (oaSel) {
+    const huidige = oaSel.value;
+    oaSel.innerHTML = '<option value="">— kies een eigen rekening —</option>'
+      + cache.accounts.map(a =>
+          `<option value="${a.id}" data-balance="${a.balance ?? 0}">${a.id} — ${a.owner_name ?? '?'} (€${parseFloat(a.balance ?? 0).toFixed(2)})</option>`
+        ).join('');
+    if (huidige && cache.accounts.some(a => a.id === huidige)) oaSel.value = huidige;
+    updateOaSaldo();
+  }
+
+  // BB: bekende banken uit CB + eigen BIC voor interne PO
+  const bbSel = document.getElementById('m-bb-id');
+  if (bbSel) {
+    const huidige = bbSel.value;
+    const eigen = `<option value="${huidigeBank.bic}">${huidigeBank.bic} — ${huidigeBank.naam} (intern)</option>`;
+    const externen = cache.banks
+      .filter(b => (b.bic || b.id) && (b.bic || b.id) !== huidigeBank.bic)
+      .map(b => {
+        const bic = b.bic || b.id;
+        return `<option value="${bic}">${bic} — ${b.name ?? '?'}</option>`;
+      }).join('');
+    bbSel.innerHTML = '<option value="">— kies ontvangende bank —</option>' + eigen + externen;
+    if (huidige) bbSel.value = huidige;
+    bijBbWijziging();
+  }
+
+  // BA: datalist met onze eigen IBANs (handig voor interne PO)
+  const baList = document.getElementById('m-ba-suggesties');
+  if (baList) {
+    baList.innerHTML = cache.accounts.map(a =>
+      `<option value="${a.id}">${a.owner_name ?? '?'} — €${parseFloat(a.balance ?? 0).toFixed(2)}</option>`
+    ).join('');
+  }
+}
+
+function updateOaSaldo() {
+  const sel = document.getElementById('m-oa-id');
+  const hint = document.getElementById('m-oa-saldo');
+  if (!sel || !hint) return;
+  const opt = sel.options[sel.selectedIndex];
+  const bal = opt?.getAttribute('data-balance');
+  if (bal != null && opt.value) {
+    const n = parseFloat(bal);
+    hint.textContent = `saldo: €${n.toFixed(2)}`;
+    hint.className = n > 0 ? 'form-hint form-hint--ok' : 'form-hint form-hint--fout';
+  } else {
+    hint.textContent = 'saldo: —';
+    hint.className = 'form-hint';
+  }
+}
+
+function bijBbWijziging() {
+  const sel  = document.getElementById('m-bb-id');
+  const hint = document.getElementById('m-bb-naam');
+  if (!sel || !hint) return;
+  const v = sel.value;
+  if (!v) { hint.textContent = '—'; return; }
+  if (v === huidigeBank.bic) {
+    hint.textContent = '↻ interne betaling — geen CB-call';
+    hint.className = 'form-hint form-hint--ok';
+  } else {
+    const bank = cache.banks.find(b => (b.bic || b.id) === v);
+    hint.textContent = bank ? `→ ${bank.name ?? 'externe bank'}` : '→ externe bank';
+    hint.className = 'form-hint';
+  }
+}
+
+function bijOpenenManuelePo() {
+  const det = document.getElementById('manuele-po-details');
+  if (det && det.open) laadDropdownData();
+}
+
+/* ─────────────────────────────────────────────
+   Auto-poll loop met diff-detectie
+─────────────────────────────────────────────── */
+async function pollLoop() {
+  const indicator = document.getElementById('poll-indicator');
+  try {
+    const [poIn, poOut, ackIn, ackOut, accounts] = await Promise.all([
+      apiFetch('/po_in').then(normaliseer),
+      apiFetch('/po_out').then(normaliseer),
+      apiFetch('/ack_in').then(normaliseer),
+      apiFetch('/ack_out').then(normaliseer),
+      apiFetch('/accounts').then(normaliseer),
+    ]);
+
+    if (snapshot.geinitialiseerd) {
+      diffPoIn(poIn);
+      diffPoOut(poOut);
+      diffAckIn(ackIn);
+      diffAckOut(ackOut);
+      diffSaldi(accounts);
+    } else {
+      // Eerste run: alleen vullen, geen toasts
+      poIn.forEach(p => snapshot.poIn.add(p.po_id));
+      poOut.forEach(p => snapshot.poOut.set(p.po_id, p.status));
+      ackIn.forEach(a => snapshot.ackIn.add(a.po_id));
+      ackOut.forEach(a => snapshot.ackOut.add(a.po_id));
+      accounts.forEach(a => snapshot.saldi.set(a.id, parseFloat(a.balance ?? 0)));
+      snapshot.geinitialiseerd = true;
+      cache.accounts = accounts;
+      vulManueleDropdowns();
+    }
+
+    // Cache accounts altijd bijwerken voor de dropdown saldi
+    cache.accounts = accounts;
+
+    // Auto-refresh van zichtbare sectie
+    const actief = document.querySelector('.sectie.actief')?.id?.replace('sectie-', '');
+    if (actief) laadSectie(actief);
+
+    indicator?.classList.remove('poll-fout');
+  } catch (err) {
+    indicator?.classList.add('poll-fout');
+    console.warn('[poll] fout:', err.message);
+  }
+}
+
+function diffPoIn(rijen) {
+  const nieuwe = rijen.filter(p => !snapshot.poIn.has(p.po_id));
+  nieuwe.forEach(p => {
+    snapshot.poIn.add(p.po_id);
+    const code = parseInt(p.bb_code, 10);
+    const ok   = code === 2000;
+    toast(
+      ok ? 'ok' : 'fout',
+      ok ? '📥 Nieuwe inkomende PO verwerkt' : `📥 Inkomende PO afgewezen (${p.bb_code})`,
+      `${p.po_id} · €${parseFloat(p.po_amount ?? 0).toFixed(2)} van ${p.ob_id}`
+    );
+    markeerNieuw('po-in');
+  });
+}
+
+function diffPoOut(rijen) {
+  rijen.forEach(p => {
+    const oudeStatus = snapshot.poOut.get(p.po_id);
+    if (oudeStatus === undefined) {
+      snapshot.poOut.set(p.po_id, p.status);
+      toast('info', '📤 PO verstuurd', `${p.po_id} · €${parseFloat(p.po_amount ?? 0).toFixed(2)} naar ${p.bb_id}`);
+      markeerNieuw('po-uit');
+    } else if (oudeStatus !== p.status) {
+      snapshot.poOut.set(p.po_id, p.status);
+      const map = {
+        processed: ['ok',     '✅ PO afgerond'],
+        failed:    ['fout',   '✕ PO mislukt'],
+        timeout:   ['waarschuwing', '⏰ PO getimeout (1u)'],
+      };
+      const [type, titel] = map[p.status] || ['info', `PO status → ${p.status}`];
+      toast(type, titel, `${p.po_id} · €${parseFloat(p.po_amount ?? 0).toFixed(2)}`);
+      markeerNieuw('po-uit');
+    }
+  });
+}
+
+function diffAckIn(rijen) {
+  const nieuwe = rijen.filter(a => !snapshot.ackIn.has(a.po_id));
+  nieuwe.forEach(a => {
+    snapshot.ackIn.add(a.po_id);
+    const code = parseInt(a.bb_code, 10);
+    const ok   = code === 2000;
+    toast(
+      ok ? 'ok' : 'fout',
+      ok ? '✅ ACK ontvangen' : `✕ Negatieve ACK (${a.bb_code})`,
+      `${a.po_id}`
+    );
+    markeerNieuw('ack-in');
+  });
+}
+
+function diffAckOut(rijen) {
+  const nieuwe = rijen.filter(a => !snapshot.ackOut.has(a.po_id));
+  // Bij eerste run zijn er er soms 1000+ ack_out rijen — niet als spam tonen,
+  // alleen meldingen geven over écht nieuwe exemplaren ná init
+  if (nieuwe.length > 0 && nieuwe.length <= 5) {
+    nieuwe.forEach(a => toast('info', '📨 ACK verstuurd', `${a.po_id} (bb_code ${a.bb_code})`));
+  } else if (nieuwe.length > 5) {
+    toast('info', `📨 ${nieuwe.length} ACKs verstuurd`, 'Bekijk ACK_OUT voor details');
+  }
+  nieuwe.forEach(a => snapshot.ackOut.add(a.po_id));
+  if (nieuwe.length) markeerNieuw('ack-uit');
+}
+
+function diffSaldi(accounts) {
+  accounts.forEach(a => {
+    const nieuw = parseFloat(a.balance ?? 0);
+    const oud   = snapshot.saldi.get(a.id);
+    if (oud != null && Math.abs(nieuw - oud) > 0.001) {
+      const delta = nieuw - oud;
+      const teken = delta > 0 ? '+' : '';
+      toast(
+        delta > 0 ? 'ok' : 'waarschuwing',
+        `💰 Saldo gewijzigd · ${a.owner_name ?? a.id}`,
+        `${a.id}: €${oud.toFixed(2)} → €${nieuw.toFixed(2)} (${teken}€${delta.toFixed(2)})`
+      );
+      markeerNieuw('accounts');
+    }
+    snapshot.saldi.set(a.id, nieuw);
+  });
+}
+
+function startAutoPoll() {
+  if (pollTimerId) clearInterval(pollTimerId);
+  pollLoop();   // direct éérste keer
+  pollTimerId = setInterval(pollLoop, POLL_INTERVAL_MS);
 }
 
 /* ─────────────────────────────────────────────
@@ -166,13 +452,6 @@ function legeRij(kolommen, bericht = 'Geen data') {
   return `<tr class="rij-leeg"><td colspan="${kolommen}">${bericht}</td></tr>`;
 }
 
-/* normaliseert API-antwoord naar array — werkt voor { data: [...] } én directe arrays */
-function normaliseer(res) {
-  if (Array.isArray(res)) return res;
-  if (res && Array.isArray(res.data)) return res.data;
-  return [];
-}
-
 /* ─────────────────────────────────────────────
    Dashboard
 ─────────────────────────────────────────────── */
@@ -181,22 +460,10 @@ async function laadDashboard() {
     const res = await apiFetch('/info');
     const d   = res.data ?? res ?? {};
     document.getElementById('info-inhoud').innerHTML = `
-      <div class="info-rij">
-        <span class="info-label">Banknaam</span>
-        <span class="info-waarde">${d.bank_name ?? '—'}</span>
-      </div>
-      <div class="info-rij">
-        <span class="info-label">BIC</span>
-        <span class="info-waarde">${d.bic ?? '—'}</span>
-      </div>
-      <div class="info-rij">
-        <span class="info-label">CB API</span>
-        <span class="info-waarde">https://stevenop.be/pingfin/api/v2/</span>
-      </div>
-      <div class="info-rij">
-        <span class="info-label">Team</span>
-        <span class="info-waarde">${d.team ?? '—'}</span>
-      </div>
+      <div class="info-rij"><span class="info-label">Banknaam</span><span class="info-waarde">${d.bank_name ?? '—'}</span></div>
+      <div class="info-rij"><span class="info-label">BIC</span><span class="info-waarde">${d.bic ?? '—'}</span></div>
+      <div class="info-rij"><span class="info-label">CB API</span><span class="info-waarde">https://stevenop.be/pingfin/api/v2/</span></div>
+      <div class="info-rij"><span class="info-label">Team</span><span class="info-waarde">${d.team ?? '—'}</span></div>
       <div class="leden-raster">
         ${(d.members || []).map(m => `
           <div class="lid-kaart">
@@ -205,12 +472,6 @@ async function laadDashboard() {
             <div class="lid-rol">${m.role ?? ''}</div>
           </div>`).join('')}
       </div>`;
-
-    // Sync aside met live bankinfo uit API
-    const asideBic = document.getElementById('aside-bic-waarde');
-    if (asideBic && d.bic) asideBic.textContent = d.bic;
-    const asideNaam = document.getElementById('aside-banknaam-waarde');
-    if (asideNaam && d.bank_name) asideNaam.textContent = d.bank_name;
   } catch {
     document.getElementById('info-inhoud').innerHTML =
       '<div class="leeg"><div class="leeg-icoon">⚠️</div><div class="leeg-tekst">API niet bereikbaar — controleer de server</div></div>';
@@ -220,8 +481,7 @@ async function laadDashboard() {
     const [acc, poUit, poIn, ackIn, tx, logs] = await Promise.all([
       apiFetch('/accounts'), apiFetch('/po_out'),
       apiFetch('/po_in'),    apiFetch('/ack_in'),
-      apiFetch('/transactions'),
-      apiFetch('/logs?limit=1000'),
+      apiFetch('/transactions'), apiFetch('/logs?limit=1000'),
     ]);
     document.getElementById('stat-accounts').textContent = normaliseer(acc).length;
     document.getElementById('stat-po-uit').textContent   = normaliseer(poUit).length;
@@ -236,7 +496,7 @@ async function laadDashboard() {
 }
 
 /* ─────────────────────────────────────────────
-   Quick Actions — manuele job-triggers
+   Quick Actions
 ─────────────────────────────────────────────── */
 async function runJob(naam) {
   const log = document.getElementById('job-log');
@@ -250,22 +510,41 @@ async function runJob(naam) {
     div.className = 'log-item ok';
     const samenvatting = JSON.stringify(res.data || {}).slice(0, 200);
     div.innerHTML = `<span class="log-tijd">[${tijd}]</span> ✓ ${naam}: ${samenvatting}`;
-    // ververs dashboard-stats want jobs muteren state
-    if (document.querySelector('.sectie.actief')?.id === 'sectie-dashboard') {
-      laadDashboard();
-    }
+    toast('ok', `Job '${naam}' uitgevoerd`, samenvatting);
+    pollLoop();   // forceer een poll-pass om events op te pikken
   } catch (e) {
     div.className = 'log-item fout';
     div.innerHTML = `<span class="log-tijd">[${tijd}]</span> ✕ ${naam}: ${e.message}`;
+    toast('fout', `Job '${naam}' mislukt`, e.message);
   }
 }
 
 /* ─────────────────────────────────────────────
-   Transacties
+   Tabel-laders (worden bij elke poll opnieuw gerenderd)
 ─────────────────────────────────────────────── */
+async function laadAccounts() {
+  const tbody = document.getElementById('accounts-rijen');
+  if (!tbody) return;
+  try {
+    const rijen = normaliseer(await apiFetch('/accounts'));
+    zetTeller('accounts-teller', rijen);
+    tbody.innerHTML = rijen.length
+      ? rijen.map((a, i) => `
+          <tr>
+            <td class="cel-mono">${i + 1}</td>
+            <td class="cel-iban">${a.id ?? '—'}</td>
+            <td>${a.owner_name ?? '—'}</td>
+            <td>${euro(a.balance)}</td>
+          </tr>`).join('')
+      : legeRij(4, 'Geen accounts');
+  } catch {
+    tbody.innerHTML = legeRij(4, '⚠️ Fout bij ophalen van accounts');
+  }
+}
+
 async function laadTransacties() {
   const tbody = document.getElementById('tx-rijen');
-  tbody.innerHTML = `<tr><td colspan="6" class="laden">Laden…</td></tr>`;
+  if (!tbody) return;
   try {
     const rijen = normaliseer(await apiFetch('/transactions'));
     zetTeller('tx-teller', rijen);
@@ -276,15 +555,12 @@ async function laadTransacties() {
           const teken  = bedrag >= 0 ? '+' : '−';
           const valid  = t.isvalid ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-fout">✕</span>';
           const compl  = t.iscomplete ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-wacht">…</span>';
-          return `
-            <tr>
-              <td class="cel-mono">${t.po_id ?? '—'}</td>
-              <td class="cel-iban">${t.account_id ?? '—'}</td>
-              <td><span class="badge ${klasse}">${teken}€${Math.abs(bedrag).toFixed(2)}</span></td>
-              <td>${valid}</td>
-              <td>${compl}</td>
-              <td>${datumCel(t.datetime)}</td>
-            </tr>`;
+          return `<tr>
+            <td class="cel-mono">${t.po_id ?? '—'}</td>
+            <td class="cel-iban">${t.account_id ?? '—'}</td>
+            <td><span class="badge ${klasse}">${teken}€${Math.abs(bedrag).toFixed(2)}</span></td>
+            <td>${valid}</td><td>${compl}</td>
+            <td>${datumCel(t.datetime)}</td></tr>`;
         }).join('')
       : legeRij(6, 'Nog geen transacties');
   } catch {
@@ -292,12 +568,9 @@ async function laadTransacties() {
   }
 }
 
-/* ─────────────────────────────────────────────
-   Logs (met type-filter)
-─────────────────────────────────────────────── */
 async function laadLogs() {
   const tbody = document.getElementById('logs-rijen');
-  tbody.innerHTML = `<tr><td colspan="4" class="laden">Laden…</td></tr>`;
+  if (!tbody) return;
   const type = document.getElementById('logs-type')?.value || '';
   const limiet = parseInt(document.getElementById('logs-limiet')?.value, 10) || 100;
   const params = new URLSearchParams({ limit: String(limiet) });
@@ -310,74 +583,118 @@ async function laadLogs() {
           const isError = (l.type || '').includes('error') || (l.type || '').includes('rejected');
           const isOk    = ['ba_credited','oa_debited','po_internal','ack_processed','ack_pushed','cb_token','po_sent_cb'].includes(l.type);
           const cls     = isError ? 'log-item fout' : (isOk ? 'log-item ok' : 'log-item info');
-          return `
-            <tr class="${cls}" style="background:transparent">
-              <td class="cel-mono">${datumCel(l.datetime)}</td>
-              <td class="cel-mono">${l.type ?? '—'}</td>
-              <td>${(l.message ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]))}</td>
-              <td class="cel-mono">${l.po_id ?? '—'}</td>
-            </tr>`;
+          return `<tr class="${cls}" style="background:transparent">
+            <td class="cel-mono">${datumCel(l.datetime)}</td>
+            <td class="cel-mono">${l.type ?? '—'}</td>
+            <td>${escapeHtml(l.message ?? '')}</td>
+            <td class="cel-mono">${l.po_id ?? '—'}</td></tr>`;
         }).join('')
-      : legeRij(4, 'Geen log-events met dit filter');
+      : legeRij(4, 'Geen log-events');
   } catch {
     tbody.innerHTML = legeRij(4, '⚠️ Fout bij ophalen van logs');
   }
 }
 
-/* ─────────────────────────────────────────────
-   Banks (CB.banks cache)
-─────────────────────────────────────────────── */
 async function laadBanks() {
   const tbody = document.getElementById('banks-rijen');
-  tbody.innerHTML = `<tr><td colspan="3" class="laden">Laden…</td></tr>`;
+  if (!tbody) return;
   try {
     const rijen = normaliseer(await apiFetch('/banks'));
+    cache.banks = rijen;
     zetTeller('banks-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map((b, i) => {
-          const isOurs = b.bic === huidigeBank.bic;
-          return `
-            <tr ${isOurs ? 'style="background:rgba(80,200,120,.08)"' : ''}>
-              <td class="cel-mono">${i + 1}</td>
-              <td class="cel-mono">${b.bic ?? '—'}${isOurs ? ' <span class="badge badge-ok">jij</span>' : ''}</td>
-              <td>${b.name ?? '—'}</td>
-            </tr>`;
+          const isOurs = (b.bic || b.id) === huidigeBank.bic;
+          return `<tr ${isOurs ? 'style="background:rgba(80,200,120,.08)"' : ''}>
+            <td class="cel-mono">${i + 1}</td>
+            <td class="cel-mono">${b.bic ?? b.id ?? '—'}${isOurs ? ' <span class="badge badge-ok">jij</span>' : ''}</td>
+            <td>${b.name ?? '—'}</td></tr>`;
         }).join('')
       : legeRij(3, 'Geen banken in CB-lijst');
   } catch {
-    tbody.innerHTML = legeRij(3, '⚠️ Fout bij ophalen van banks (CB onbereikbaar?)');
+    tbody.innerHTML = legeRij(3, '⚠️ Fout bij ophalen van banks');
   }
 }
 
-/* ─────────────────────────────────────────────
-   Accounts
-─────────────────────────────────────────────── */
-async function laadAccounts() {
-  const tbody = document.getElementById('accounts-rijen');
-  tbody.innerHTML = `<tr><td colspan="4" class="laden">Laden…</td></tr>`;
+/* PO-tabellen */
+async function laadPoUit() {
+  const tbody = document.getElementById('po-uit-rijen');
+  if (!tbody) return;
   try {
-    const rijen = normaliseer(await apiFetch('/accounts'));
-    zetTeller('accounts-teller', rijen);
+    const rijen = normaliseer(await apiFetch('/po_out'));
+    zetTeller('po-uit-teller', rijen);
     tbody.innerHTML = rijen.length
-      ? rijen.map((a, i) => `
-          <tr>
-            <td class="cel-mono">${i + 1}</td>
-            <td class="cel-iban">${a.id ?? '—'}</td>
-            <td>${a.owner_name ?? '—'}</td>
-            <td>${euro(a.balance)}</td>
-          </tr>`).join('')
-      : legeRij(4, 'Geen accounts gevonden');
+      ? rijen.map(p => `<tr>
+          <td class="cel-mono">${p.po_id}</td>
+          <td>${euro(p.po_amount)}</td>
+          <td>${datumCel(p.po_datetime)}</td>
+          <td>${badge(p.ob_code)}</td>
+          <td>${badge(p.cb_code)}</td>
+          <td>${badge(p.bb_code)}</td></tr>`).join('')
+      : legeRij(6, 'Geen data');
   } catch {
-    tbody.innerHTML = legeRij(4, '⚠️ Fout bij ophalen van accounts');
+    tbody.innerHTML = legeRij(6, '⚠️ Fout');
+  }
+}
+
+async function laadPoIn() {
+  const tbody = document.getElementById('po-in-rijen');
+  if (!tbody) return;
+  try {
+    const rijen = normaliseer(await apiFetch('/po_in'));
+    zetTeller('po-in-teller', rijen);
+    tbody.innerHTML = rijen.length
+      ? rijen.map(p => `<tr>
+          <td class="cel-mono">${p.po_id}</td>
+          <td>${euro(p.po_amount)}</td>
+          <td class="cel-mono">${p.ob_id ?? '—'}</td>
+          <td>${badge(p.cb_code)}</td>
+          <td>${badge(p.bb_code)}</td></tr>`).join('')
+      : legeRij(5, 'Geen data');
+  } catch {
+    tbody.innerHTML = legeRij(5, '⚠️ Fout');
+  }
+}
+
+async function laadAckIn() {
+  const tbody = document.getElementById('ack-in-rijen');
+  if (!tbody) return;
+  try {
+    const rijen = normaliseer(await apiFetch('/ack_in'));
+    zetTeller('ack-in-teller', rijen);
+    tbody.innerHTML = rijen.length
+      ? rijen.map(a => `<tr>
+          <td class="cel-mono">${a.po_id}</td>
+          <td>${badge(a.cb_code)}</td>
+          <td>${badge(a.bb_code)}</td>
+          <td>${datumCel(a.received_at)}</td></tr>`).join('')
+      : legeRij(4, 'Geen data');
+  } catch {
+    tbody.innerHTML = legeRij(4, '⚠️ Fout');
+  }
+}
+
+async function laadAckUit() {
+  const tbody = document.getElementById('ack-uit-rijen');
+  if (!tbody) return;
+  try {
+    const rijen = normaliseer(await apiFetch('/ack_out'));
+    zetTeller('ack-uit-teller', rijen);
+    tbody.innerHTML = rijen.length
+      ? rijen.map(a => `<tr>
+          <td class="cel-mono">${a.po_id}</td>
+          <td>${badge(a.bb_code)}</td>
+          <td>${datumCel(a.sent_at)}</td></tr>`).join('')
+      : legeRij(3, 'Geen data');
+  } catch {
+    tbody.innerHTML = legeRij(3, '⚠️ Fout');
   }
 }
 
 /* ─────────────────────────────────────────────
    PO Aanmaken (generator + manueel)
 ─────────────────────────────────────────────── */
-function laadPoNieuw() {
-  // Sectie staat al klaar in HTML; geen data te laden
-}
+function laadPoNieuw() { /* statisch HTML; auto-poll vult dropdowns */ }
 
 async function genereerPos() {
   const aantal = document.getElementById('po-aantal').value;
@@ -394,13 +711,18 @@ async function genereerPos() {
         <td>${p.po_message}</td>
       </tr>`).join('');
     voegLogToe('ok', `${gegenereerdePos.length} PO's gegenereerd`);
+    toast('ok', `${gegenereerdePos.length} PO's gegenereerd`, 'Klik op Opslaan om ze in PO_NEW te plaatsen');
   } catch (e) {
     voegLogToe('fout', 'Genereren mislukt: ' + e.message);
+    toast('fout', 'Genereren mislukt', e.message);
   }
 }
 
 async function slaPoNieuwOp() {
-  if (!gegenereerdePos.length) { voegLogToe('info', 'Geen POs om op te slaan'); return; }
+  if (!gegenereerdePos.length) {
+    toast('info', 'Niets om op te slaan', 'Genereer eerst PO\'s');
+    return;
+  }
   try {
     const r = await fetch(huidigeBank.apiBase + '/po_new/add', {
       method: 'POST',
@@ -409,8 +731,10 @@ async function slaPoNieuwOp() {
     });
     const data = await r.json();
     voegLogToe(data.ok ? 'ok' : 'fout', data.message);
+    toast(data.ok ? 'ok' : 'fout', data.ok ? 'PO\'s opgeslagen' : 'Opslaan mislukt', data.message);
   } catch (e) {
     voegLogToe('fout', 'Opslaan mislukt: ' + e.message);
+    toast('fout', 'Opslaan mislukt', e.message);
   }
 }
 
@@ -418,11 +742,14 @@ async function verwerkPoNieuw() {
   try {
     const data = await apiFetch('/po_new/process');
     voegLogToe(data.ok ? 'ok' : 'fout', data.message);
+    toast(data.ok ? 'ok' : 'fout', 'PO_NEW verwerkt', data.message);
     (data.data || []).forEach(r =>
       voegLogToe(r.code >= 4000 ? 'fout' : 'ok',
         `${r.po_id} → ${r.status} (code: ${r.code})`));
+    pollLoop();
   } catch (e) {
     voegLogToe('fout', 'Verwerken mislukt: ' + e.message);
+    toast('fout', 'Verwerken mislukt', e.message);
   }
 }
 
@@ -433,126 +760,47 @@ async function verstuurManuelePos() {
   const amount  = document.getElementById('m-amount')?.value?.trim();
   const message = document.getElementById('m-message')?.value?.trim();
 
-  if (!oa_id || !ba_id || !bb_id || !amount) {
-    voegLogToe('fout', 'Vul alle verplichte velden in (OA, BA, BB, bedrag)');
-    return;
+  // Inline-validatie met directe feedback
+  if (!oa_id) { toast('fout', 'OA niet geselecteerd', 'Kies een eigen rekening'); return; }
+  if (!ba_id) { toast('fout', 'BA IBAN ontbreekt', 'Vul de ontvangende rekening in'); return; }
+  if (!bb_id) { toast('fout', 'BB BIC ontbreekt', 'Kies een ontvangende bank'); return; }
+  if (!amount) { toast('fout', 'Bedrag ontbreekt', 'Vul een bedrag in'); return; }
+
+  const bedrag = parseFloat(amount);
+  if (!(bedrag > 0))      { toast('fout', 'Ongeldig bedrag', 'Moet > 0 zijn'); return; }
+  if (bedrag > 500)       { toast('fout', 'Bedrag te hoog', 'Max €500 per PO'); return; }
+  if (oa_id === ba_id && bb_id === huidigeBank.bic) {
+    toast('fout', 'Zelfde rekening', 'OA en BA moeten verschillen bij interne PO'); return;
   }
 
-  if (!huidigeBank.heeftManuelePo) {
-    voegLogToe('info',
-      `${huidigeBank.naam} heeft geen GUI-endpoint voor manuele PO. ` +
-      `Test via: curl -X POST ${huidigeBank.apiBase}/po_new/manual`);
-    return;
+  // Lokale saldo-check (preventieve UX-warning, server valideert opnieuw)
+  const oaAcc = cache.accounts.find(a => a.id === oa_id);
+  if (oaAcc && parseFloat(oaAcc.balance) < bedrag) {
+    toast('waarschuwing', 'Saldo waarschijnlijk te laag', `${oa_id} heeft €${parseFloat(oaAcc.balance).toFixed(2)} (nodig: €${bedrag.toFixed(2)})`);
+    // doorgaan — server geeft 4102 als 't echt niet kan
   }
 
   try {
     const r = await fetch(huidigeBank.apiBase + '/po_new/manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ oa_id, ba_id, bb_id, po_amount: parseFloat(amount), po_message: message })
+      body: JSON.stringify({ oa_id, ba_id, bb_id, po_amount: bedrag, po_message: message })
     });
     const data = await r.json();
     if (data.ok) {
       voegLogToe('ok', `Manuele PO aangemaakt: ${data.data?.po_id}`);
+      toast('ok', 'Manuele PO aangemaakt', `${data.data?.po_id} — klik op "Verwerk PO_NEW" om te versturen`);
+      // Velden leegmaken voor volgende
+      document.getElementById('m-amount').value = '';
+      document.getElementById('m-message').value = '';
+      document.getElementById('m-ba-id').value = '';
     } else {
       voegLogToe('fout', `Geweigerd (code ${data.code}): ${data.message}`);
+      toast('fout', `PO geweigerd (${data.code})`, data.message);
     }
   } catch (e) {
     voegLogToe('fout', 'Manuele PO mislukt: ' + e.message);
-  }
-}
-
-/* ─────────────────────────────────────────────
-   PO_OUT
-─────────────────────────────────────────────── */
-async function laadPoUit() {
-  const tbody = document.getElementById('po-uit-rijen');
-  tbody.innerHTML = `<tr><td colspan="6" class="laden">Laden…</td></tr>`;
-  try {
-    const rijen = normaliseer(await apiFetch('/po_out'));
-    zetTeller('po-uit-teller', rijen);
-    tbody.innerHTML = rijen.length
-      ? rijen.map(p => `
-          <tr>
-            <td class="cel-mono">${p.po_id}</td>
-            <td>${euro(p.po_amount)}</td>
-            <td>${datumCel(p.po_datetime)}</td>
-            <td>${badge(p.ob_code)}</td>
-            <td>${badge(p.cb_code)}</td>
-            <td>${badge(p.bb_code)}</td>
-          </tr>`).join('')
-      : legeRij(6, 'Geen data');
-  } catch {
-    tbody.innerHTML = legeRij(6, '⚠️ Fout bij ophalen van PO_OUT');
-  }
-}
-
-/* ─────────────────────────────────────────────
-   PO_IN
-─────────────────────────────────────────────── */
-async function laadPoIn() {
-  const tbody = document.getElementById('po-in-rijen');
-  tbody.innerHTML = `<tr><td colspan="5" class="laden">Laden…</td></tr>`;
-  try {
-    const rijen = normaliseer(await apiFetch('/po_in'));
-    zetTeller('po-in-teller', rijen);
-    tbody.innerHTML = rijen.length
-      ? rijen.map(p => `
-          <tr>
-            <td class="cel-mono">${p.po_id}</td>
-            <td>${euro(p.po_amount)}</td>
-            <td class="cel-mono">${p.ob_id ?? '—'}</td>
-            <td>${badge(p.cb_code)}</td>
-            <td>${badge(p.bb_code)}</td>
-          </tr>`).join('')
-      : legeRij(5, 'Geen data');
-  } catch {
-    tbody.innerHTML = legeRij(5, '⚠️ Fout bij ophalen van PO_IN');
-  }
-}
-
-/* ─────────────────────────────────────────────
-   ACK_IN
-─────────────────────────────────────────────── */
-async function laadAckIn() {
-  const tbody = document.getElementById('ack-in-rijen');
-  tbody.innerHTML = `<tr><td colspan="4" class="laden">Laden…</td></tr>`;
-  try {
-    const rijen = normaliseer(await apiFetch('/ack_in'));
-    zetTeller('ack-in-teller', rijen);
-    tbody.innerHTML = rijen.length
-      ? rijen.map(a => `
-          <tr>
-            <td class="cel-mono">${a.po_id}</td>
-            <td>${badge(a.cb_code)}</td>
-            <td>${badge(a.bb_code)}</td>
-            <td>${datumCel(a.received_at)}</td>
-          </tr>`).join('')
-      : legeRij(4, 'Geen data');
-  } catch {
-    tbody.innerHTML = legeRij(4, '⚠️ Fout bij ophalen van ACK_IN');
-  }
-}
-
-/* ─────────────────────────────────────────────
-   ACK_OUT
-─────────────────────────────────────────────── */
-async function laadAckUit() {
-  const tbody = document.getElementById('ack-uit-rijen');
-  tbody.innerHTML = `<tr><td colspan="3" class="laden">Laden…</td></tr>`;
-  try {
-    const rijen = normaliseer(await apiFetch('/ack_out'));
-    zetTeller('ack-uit-teller', rijen);
-    tbody.innerHTML = rijen.length
-      ? rijen.map(a => `
-          <tr>
-            <td class="cel-mono">${a.po_id}</td>
-            <td>${badge(a.bb_code)}</td>
-            <td>${datumCel(a.sent_at)}</td>
-          </tr>`).join('')
-      : legeRij(3, 'Geen data');
-  } catch {
-    tbody.innerHTML = legeRij(3, '⚠️ Fout bij ophalen van ACK_OUT');
+    toast('fout', 'Manuele PO mislukt', e.message);
   }
 }
 
@@ -565,13 +813,14 @@ function voegLogToe(type, bericht) {
   const div = document.createElement('div');
   div.className = `log-item ${type}`;
   const tijd = new Date().toLocaleTimeString('nl-BE');
-  div.innerHTML = `<span class="log-tijd">[${tijd}]</span> ${bericht}`;
+  div.innerHTML = `<span class="log-tijd">[${tijd}]</span> ${escapeHtml(bericht)}`;
   el.prepend(div);
 }
 
 /* ─────────────────────────────────────────────
-   Initialisatie bij paginaladen
+   Init
 ─────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   initialiseerBankSelector();
+  startAutoPoll();
 });
