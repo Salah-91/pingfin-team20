@@ -1,5 +1,8 @@
 node_modules/
 .env
+.env.local
+.env.bank1
+.env.bank2
 *.log
 .DS_Store
 dist/

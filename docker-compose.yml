@@ -1,17 +1,14 @@
-version: '3.8'
-
 services:
 
   db:
     image: mysql:8
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS}
-      MYSQL_DATABASE: pingfin_team20
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-pingfin_dev_password}
     ports:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/00_init.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -19,11 +16,12 @@ services:
       retries: 10
 
   bank1:
-    build: ./api
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     ports:
       - "3000:3000"
-    env_file:
-      - ./api/.env
+    env_file: ./api/.env.bank1.example
     environment:
       DB_HOST: db
       DB_PORT: 3306
@@ -34,26 +32,29 @@ services:
     restart: unless-stopped
 
   bank2:
-    build: ./bank2
+    build:
+      context: .
+      dockerfile: api/Dockerfile
     ports:
       - "3001:3001"
-    env_file:
-      - ./bank2/.env
+    env_file: ./api/.env.bank2.example
     environment:
-      DB2_HOST: db
-      DB2_PORT: 3306
-      PORT2: 3001
+      DB_HOST: db
+      DB_PORT: 3306
+      PORT: 3001
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
+  # Optioneel: aparte nginx voor de GUI (ook door bank1/bank2 gehost op /).
   gui:
     image: nginx:alpine
     ports:
       - "8080:80"
     volumes:
       - ./gui:/usr/share/nginx/html:ro
+      - ./gui/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - bank1
       - bank2

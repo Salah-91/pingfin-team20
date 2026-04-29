@@ -2,25 +2,44 @@
 
 /* ─────────────────────────────────────────────
    Bank-configuratie
-   Bank1: /api prefix, poort 3000
-   Bank2: geen prefix, poort 3001
+   Beide banken delen /api als prefix.
+   • localhost:8080 (nginx)  → /bank1/api & /bank2/api  (reverse proxy)
+   • bank-domain (server)    → /api  (single bank, GUI mee gehost door server.js)
+   • localhost direct         → http://localhost:3000/api & 3001/api
 ─────────────────────────────────────────────── */
-const BANKEN = {
-  bank1: {
-    naam:           'Bank1',
-    bic:            'CEKVBE88',
-    apiBase:        'http://localhost:3000/api',
-    heeftManuelePo: true,
-  },
-  bank2: {
-    naam:           'Bank2',
-    bic:            'HOMNBEB1',
-    apiBase:        'http://localhost:3001',
-    heeftManuelePo: true,
-  },
-};
+function buildBanken() {
+  const o = window.location.origin;
+  const isNginx     = o.endsWith(':8080');
+  const isLocalDirect = o.match(/localhost:(3000|3001)$/);
 
-let huidigeBank    = BANKEN.bank1;
+  if (isNginx) {
+    return {
+      bank1: { naam: 'Bank1', bic: 'CEKVBE88', apiBase: o + '/bank1/api', heeftManuelePo: true },
+      bank2: { naam: 'Bank2', bic: 'HOMNBEB1', apiBase: o + '/bank2/api', heeftManuelePo: true },
+    };
+  }
+  if (isLocalDirect) {
+    // Direct op een banken-server: enkel die ene bank tonen
+    const isBank2 = o.endsWith(':3001');
+    return {
+      [isBank2 ? 'bank2' : 'bank1']: {
+        naam: isBank2 ? 'Bank2' : 'Bank1',
+        bic:  isBank2 ? 'HOMNBEB1' : 'CEKVBE88',
+        apiBase: o + '/api',
+        heeftManuelePo: true,
+      }
+    };
+  }
+  // Production / Railway: GUI wordt door dezelfde server gehost
+  return {
+    bank1: { naam: 'Bank — deze instance', bic: '?', apiBase: o + '/api', heeftManuelePo: true },
+  };
+}
+
+const BANKEN = buildBanken();
+const EERSTE_KEY = Object.keys(BANKEN)[0];
+
+let huidigeBank    = BANKEN[EERSTE_KEY];
 let gegenereerdePos = [];
 
 /* ─────────────────────────────────────────────
@@ -83,12 +102,30 @@ function wisselBank(bankKey) {
 
 function initialiseerBankSelector() {
   const opgeslagen = localStorage.getItem('pingfin_bank');
-  const bankKey    = (opgeslagen && BANKEN[opgeslagen]) ? opgeslagen : 'bank1';
+  const bankKey    = (opgeslagen && BANKEN[opgeslagen]) ? opgeslagen : EERSTE_KEY;
 
   const selector = document.getElementById('bank-selector');
-  if (selector) selector.value = bankKey;
+  if (selector) {
+    // Verwijder opties voor banken die niet beschikbaar zijn (bv. single-instance prod)
+    Array.from(selector.options).forEach(opt => {
+      if (!BANKEN[opt.value]) opt.remove();
+    });
+    selector.value = bankKey;
+    if (Object.keys(BANKEN).length < 2) selector.style.display = 'none';
+  }
 
   wisselBank(bankKey);
+
+  // Probeer BIC/Bankname op te halen als ze nog onbekend zijn (single-instance fallback)
+  if (huidigeBank.bic === '?') {
+    fetch(huidigeBank.apiBase + '/info').then(r => r.json()).then(j => {
+      if (j?.data?.bic) {
+        huidigeBank.bic = j.data.bic;
+        huidigeBank.naam = j.data.bank_name || huidigeBank.naam;
+        wisselBank(EERSTE_KEY);
+      }
+    }).catch(() => {});
+  }
 }
 
 /* ─────────────────────────────────────────────
