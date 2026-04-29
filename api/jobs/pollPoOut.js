@@ -33,28 +33,28 @@ async function runOnce() {
     });
   }
 
-  // Post ACKs naar CB
-  if (acks.length > 0) {
+  // Post ACKs naar CB — één voor één, zodat 1 rotte appel niet de hele batch sloopt
+  let pushed = 0, failed = 0;
+  for (const ack of acks) {
     try {
-      const r = await cb.sendAcks(acks);
-      if (!r.ok) {
-        await writeLog('cb_error', `ACK push status ${r.status}: ${JSON.stringify(r.body).slice(0, 200)}`);
+      const r = await cb.sendAcks([ack]);
+      if (r.ok) {
+        await pool.query('UPDATE ack_out SET sent_to_cb=1 WHERE po_id=?', [ack.po_id]);
+        pushed++;
       } else {
-        // Markeer onze ack_out als verstuurd
-        for (const a of acks) {
-          await pool.query(
-            'UPDATE ack_out SET sent_to_cb=1 WHERE po_id=?',
-            [a.po_id]
-          );
-        }
-        await writeLog('ack_pushed', `${acks.length} ACK(s) gepost naar CB`);
+        failed++;
+        await writeLog('cb_error', `ACK push status ${r.status} voor ${ack.po_id}: ${JSON.stringify(r.body).slice(0, 200)}`);
       }
     } catch (err) {
-      await writeLog('cb_error', `ACK push exception: ${err.message}`);
+      failed++;
+      await writeLog('cb_error', `ACK push exception voor ${ack.po_id}: ${err.message}`);
     }
   }
+  if (acks.length > 0) {
+    await writeLog('ack_pushed', `${pushed}/${acks.length} ACK(s) gepost naar CB${failed ? ` (${failed} gefaald)` : ''}`);
+  }
 
-  return { fetched: posForUs.length, processed: acks.length };
+  return { fetched: posForUs.length, processed: acks.length, pushed, failed };
 }
 
 function start() {
