@@ -69,6 +69,15 @@
 			<button type="button" onclick="toonSectie('ack-uit', this)">
 				📨 ACK_OUT
 			</button>
+			<button type="button" onclick="toonSectie('transacties', this)">
+				💱 Transacties
+			</button>
+			<button type="button" onclick="toonSectie('logs', this)">
+				📜 Logs
+			</button>
+			<button type="button" onclick="toonSectie('banks', this)">
+				🏛️ Banks
+			</button>
 		</nav>
 
 		<!-- ════════════════════════════════════
@@ -97,7 +106,37 @@
 						<div class="statistiek-waarde" id="stat-ack-in">—</div>
 						<div class="statistiek-label">ACK_IN</div>
 					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-tx">—</div>
+						<div class="statistiek-label">Transacties</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-logs">—</div>
+						<div class="statistiek-label">Log-events</div>
+					</div>
 				</div>
+
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">⚡ Quick Actions — Achtergrondjobs</h2>
+						<span class="tabel-teller" id="job-status">jobs draaien automatisch elke 30s</span>
+					</div>
+					<div class="formulier-rij formulier-rij--wrap">
+						<button type="button" class="knop knop-primair" onclick="runJob('poll-po-out')">
+							📥 BB-poller (haal PO's uit CB)
+						</button>
+						<button type="button" class="knop knop-primair" onclick="runJob('poll-ack-out')">
+							📨 OB-poller (haal ACKs uit CB)
+						</button>
+						<button type="button" class="knop knop-geest" onclick="runJob('timeout')">
+							⏰ 1u-timeout-monitor
+						</button>
+						<button type="button" class="knop knop-geest" onclick="runJob('cb-token')">
+							🔑 CB-token verversen
+						</button>
+					</div>
+					<div class="log-paneel" id="job-log" role="log" aria-live="polite"></div>
+				</article>
 
 				<article class="kaart">
 					<div class="kaart-header">
@@ -335,6 +374,129 @@
 								</tr>
 							</thead>
 							<tbody id="ack-uit-rijen">
+								<tr>
+									<td colspan="3" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Transacties ── -->
+			<section id="sectie-transacties" class="sectie" aria-labelledby="titel-transacties">
+				<h1 class="paginatitel" id="titel-transacties">💱 Transacties — Saldobewegingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Audit-trail (BA: positief, OA: negatief)</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="tx-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadTransacties()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">Account (IBAN)</th>
+									<th scope="col">Bedrag</th>
+									<th scope="col">Geldig</th>
+									<th scope="col">Voltooid</th>
+									<th scope="col">Datum</th>
+								</tr>
+							</thead>
+							<tbody id="tx-rijen">
+								<tr>
+									<td colspan="6" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Logs ── -->
+			<section id="sectie-logs" class="sectie" aria-labelledby="titel-logs">
+				<h1 class="paginatitel" id="titel-logs">📜 Event-logs</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Alle gebeurtenissen (PO-snapshot per regel)</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="logs-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadLogs()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="formulier-rij formulier-rij--wrap">
+						<div class="formulier-groep">
+							<label for="logs-type">Type filter</label>
+							<select id="logs-type" onchange="laadLogs()">
+								<option value="">— alle —</option>
+								<option value="po_manual">po_manual</option>
+								<option value="po_added">po_added</option>
+								<option value="po_generated">po_generated</option>
+								<option value="po_internal">po_internal</option>
+								<option value="po_rejected">po_rejected</option>
+								<option value="po_duplicate">po_duplicate</option>
+								<option value="po_sent_cb">po_sent_cb</option>
+								<option value="po_timeout">po_timeout</option>
+								<option value="oa_debited">oa_debited</option>
+								<option value="oa_refunded">oa_refunded</option>
+								<option value="ba_credited">ba_credited</option>
+								<option value="ack_processed">ack_processed</option>
+								<option value="ack_pushed">ack_pushed</option>
+								<option value="ack_polled">ack_polled</option>
+								<option value="cb_token">cb_token</option>
+								<option value="cb_error">cb_error</option>
+								<option value="error">error</option>
+							</select>
+						</div>
+						<div class="formulier-groep">
+							<label for="logs-limiet">Aantal</label>
+							<input type="number" id="logs-limiet" value="100" min="10" max="1000" onchange="laadLogs()">
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Tijd</th>
+									<th scope="col">Type</th>
+									<th scope="col">Bericht</th>
+									<th scope="col">PO_ID</th>
+								</tr>
+							</thead>
+							<tbody id="logs-rijen">
+								<tr>
+									<td colspan="4" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Banks ── -->
+			<section id="sectie-banks" class="sectie" aria-labelledby="titel-banks">
+				<h1 class="paginatitel" id="titel-banks">🏛️ Banks — Geregistreerd bij CB</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Lijst opgehaald van CB.banks</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="banks-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadBanks()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">#</th>
+									<th scope="col">BIC</th>
+									<th scope="col">Naam</th>
+								</tr>
+							</thead>
+							<tbody id="banks-rijen">
 								<tr>
 									<td colspan="3" class="laden">Laden…</td>
 								</tr>
