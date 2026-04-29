@@ -7,6 +7,27 @@ const IBAN_RE = /^[A-Z]{2}\d{14}$/;                              // 16-char BE-s
 function validBic(bic)   { return typeof bic === 'string' && BIC_RE.test(bic); }
 function validIban(iban) { return typeof iban === 'string' && IBAN_RE.test(iban); }
 
+/* Echte IBAN-checksum check (mod 97). Strikt-validerende banken eisen dit. */
+function validIbanChecksum(iban) {
+  if (!validIban(iban)) return false;
+  const moved = iban.slice(4) + iban.slice(0, 4);
+  const numeric = moved.replace(/[A-Z]/g, c => (c.charCodeAt(0) - 55).toString());
+  try { return BigInt(numeric) % 97n === 1n; }
+  catch { return false; }
+}
+
+/* Genereer een willekeurige BE-IBAN met correcte mod-97 checksum. */
+function genValidBeIban(bbanPrefix = '') {
+  const padTotal = 12 - bbanPrefix.length;
+  const random = padTotal > 0
+    ? String(Math.floor(Math.random() * Math.pow(10, padTotal))).padStart(padTotal, '0')
+    : '';
+  const bban = (bbanPrefix + random).slice(0, 12).padStart(12, '0');
+  const numeric = bban + '111400';                 // B=11, E=14, placeholder 00
+  const cs = (98n - BigInt(numeric) % 97n).toString().padStart(2, '0');
+  return `BE${cs}${bban}`;
+}
+
 function validAmount(amount) {
   const n = parseFloat(amount);
   if (!Number.isFinite(n) || n <= 0 || n > 500) return false;
@@ -29,4 +50,7 @@ function validPoIdFormat(po_id, ob_id) {
   return /^[A-Z0-9]{6,11}_/.test(po_id);
 }
 
-module.exports = { validBic, validIban, validAmount, amountErrorCode, validPoIdFormat };
+module.exports = {
+  validBic, validIban, validIbanChecksum, genValidBeIban,
+  validAmount, amountErrorCode, validPoIdFormat,
+};

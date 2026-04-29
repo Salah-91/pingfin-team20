@@ -6,7 +6,7 @@ const C = require('../codes');
 const cb = require('../lib/cbClient');
 const { now } = require('../lib/time');
 const { writeLog } = require('../lib/log');
-const { validBic, validIban, amountErrorCode } = require('../lib/validate');
+const { validBic, validIban, amountErrorCode, genValidBeIban } = require('../lib/validate');
 const { requireBearer } = require('../middleware/auth');
 const { processPoIn } = require('../services/poInService');
 const { processPoNew } = require('../services/poProcessor');
@@ -49,8 +49,8 @@ router.get('/po_new/generate', async (req, res) => {
     for (let i = 0; i < count; i++) {
       const oa = ibans[Math.floor(Math.random() * ibans.length)];
       const bb = banks[Math.floor(Math.random() * banks.length)];
-      // Geldige BE-IBAN: BE + 2 cijfers + 12 cijfers = 16 chars (manual-conform)
-      const ba = `BE${Math.floor(Math.random() * 90 + 10)}${String(Math.floor(Math.random() * 1e12)).padStart(12, '0')}`;
+      // BE-IBAN met correcte mod-97 checksum (anders verwerpen strict-validerende banken hem)
+      const ba = genValidBeIban();
       const amount = Math.round((Math.random() * 499 + 1) * 100) / 100;
       pos.push({
         po_id: `${BIC}_${Math.random().toString(36).slice(2, 10)}`,
