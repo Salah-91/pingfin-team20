@@ -11,88 +11,83 @@ Sample CB: <https://stevenop.be/pingfin/api/v2>
 
 ## 1. Wat zit er in?
 
-Eén Node.js/Express applicatie (`api/`) die zowel als **Bank1** als **Bank2** gestart kan worden — enkel de env-vars verschillen. Beide instances:
+Twee zelfstandige Node.js/Express applicaties — één per bank — elk in een eigen folder met eigen Dockerfile en docker-compose.yml. Beide instances:
 
 * implementeren alle manual-endpoints onder `/api/*`
-* hosten zelf de GUI (`gui/`) op `/`
-* draaien **drie achtergrondjobs**:
+* hosten zelf hun GUI (`./public/`) op `/`
+* draaien **vier achtergrondjobs**:
   1. CB-token auto-refresh (4u TTL → 3.5u interval)
   2. BB-poller `GET /po_out` elke 30s + `POST /ack_in` na verwerking
   3. OB-poller `GET /ack_out` elke 30s
   4. 1u-timeout-monitor voor outstanding po_out → refund OA
+  5. ACK retry-flush (sent_to_cb=0 → CB) elke 60s
 
 Eén MySQL-instance host **twee databases** (`pingfin_b1`, `pingfin_b2`); zo blijven de saldo's per bank gescheiden.
+
+| Bank | BIC | Port | Database |
+|---|---|---|---|
+| Bank 1 | CEKVBE88 | **8089** | pingfin_b1 |
+| Bank 2 | HOMNBEB1 | **8090** | pingfin_b2 |
 
 ---
 
 ## 2. Folderstructuur
 
 ```
-api/
-├── server.js                # Express bootstrap + jobs.startAll()
-├── config.js                # central env config (1 bron van waarheid)
-├── codes.js                 # numerieke pingfin-codes (2000, 4001…4102)
-├── db.js                    # mysql2 pool
-├── routes/
-│   ├── help.js              # /api/help
-│   ├── info.js              # /api/info
-│   ├── accounts.js          # /api/accounts[/:iban]
-│   ├── banks.js             # /api/banks (cache van CB.banks)
-│   ├── po.js                # PO-flow public endpoints + POST /po_in (Bearer)
-│   ├── ack.js               # ACK reads + POST /ack_in (Bearer)
-│   ├── misc.js              # /api/transactions, /api/logs
-│   └── jobs.js              # /api/jobs/run/:name (manuele triggers)
-├── middleware/
-│   └── auth.js              # Bearer-token verificatie
-├── lib/
-│   ├── time.js              # YYYY-MM-DD HH:MM:SS helper
-│   ├── validate.js          # BIC / IBAN / amount / po_id format checks
-│   ├── log.js               # writeLog() naar logs-tabel met PO-snapshot
-│   ├── cbToken.js           # CB-token fetch + 3.5u refresh
-│   └── cbClient.js          # cb.banks/sendPos/fetchPos/sendAcks/fetchAcks
-├── services/
-│   ├── poInService.js       # BB-zijde: process inkomende PO
-│   ├── poProcessor.js       # OB-zijde: verwerk PO_NEW
-│   └── ackInService.js      # OB-zijde: verwerk inkomende ACK
-└── jobs/
-    ├── pollPoOut.js         # GET CB.po_out → process → POST CB.ack_in
-    ├── pollAckOut.js        # GET CB.ack_out → verwerk lokaal
-    ├── timeoutMonitor.js    # outstanding > 1u → refund
-    └── index.js             # startAll() + manualRoutes
-db/
-└── init.sql                 # creëert beide databases + schema's + accounts
-gui/
-├── index.html               # SPA met bank-selector
-├── nginx.conf               # reverse proxy /bank1/api & /bank2/api
-└── js/app.js                # relatieve URLs (auto-detect localhost / nginx / prod)
-docs/
-├── api.md                   # endpoint-documentatie
-└── dag3_testresultaten.md   # testverslag
+pingfin-team20/
+├── Bank 1/                       # CEKVBE88 — port 8089
+│   ├── server.js                 # Express bootstrap + jobs.startAll()
+│   ├── config.js · codes.js · db.js
+│   ├── routes/   (help, info, accounts, banks, po, ack, misc, jobs)
+│   ├── middleware/auth.js        # Bearer-verificatie
+│   ├── lib/      (time, validate, log, cbToken, cbClient)
+│   ├── services/ (poInService, poProcessor, ackInService)
+│   ├── jobs/     (pollPoOut, pollAckOut, flushAckOut, timeoutMonitor)
+│   ├── public/                   # GUI (index.html + js/ + css/)
+│   ├── Dockerfile
+│   ├── docker-compose.yml        # zelfstandig: db + bank1
+│   ├── package.json · package-lock.json
+│   └── .env / .env.example
+├── Bank 2/                       # HOMNBEB1 — port 8090
+│   └── (identiek aan Bank 1, andere env-waarden)
+├── pingfin_database.sql          # creëert beide DB's + schema's + accounts
+├── docker-compose.yml            # root: db + beide banken samen
+├── docs/
+└── README.md
 ```
 
 ---
 
 ## 3. Lokaal opstarten
 
+### Beide banken samen (root)
 ```bash
 # 1. Env-files maken
-cp api/.env.bank1.example api/.env.bank1
-cp api/.env.bank2.example api/.env.bank2
-# Open elk bestand en vul de geheime waarden in:
-#   - CB_SECRET    : secret_key per BIC (door coach geleverd)
-#   - INCOMING_TOKEN : kies een sterk token per bank
+cp "Bank 1/.env.example" "Bank 1/.env"
+cp "Bank 2/.env.example" "Bank 2/.env"
+# Vul in elk:
+#   - CB_SECRET       : secret_key per BIC (door coach geleverd)
+#   - INCOMING_TOKEN  : kies een sterk token per bank
 
-# 2. Start alles via docker compose
+# 2. Start alles
 docker compose up --build
 
 # 3. Bezoek
-#    http://localhost:8080  → GUI (nginx, kan tussen Bank1/Bank2 wisselen)
-#    http://localhost:3000  → Bank1 API + GUI
-#    http://localhost:3001  → Bank2 API + GUI
+#    http://localhost:8089  → Bank 1 (CEKVBE88) — GUI + API
+#    http://localhost:8090  → Bank 2 (HOMNBEB1) — GUI + API
 #    localhost:3306         → MySQL (pingfin_b1, pingfin_b2)
 ```
 
-`docker compose up` voert eenmalig `db/init.sql` uit om beide databases + schema's + accounts aan te maken.
+### Eén bank apart
+```bash
+cd "Bank 1"
+docker compose up --build           # → 8089
+# of
+cd "Bank 2"
+docker compose up --build           # → 8090 (db op 3307 host-zijde)
+```
+
+`docker compose up` voert eenmalig `pingfin_database.sql` uit om beide databases + schema's + accounts aan te maken.
 
 ---
 
@@ -100,9 +95,9 @@ docker compose up --build
 
 1. Maak in het Railway-project drie services:
    * **MySQL** (Railway-template)
-   * **bank1** (deze repo, env via `api/.env.bank1.example`)
-   * **bank2** (deze repo, env via `api/.env.bank2.example`)
-2. Voer `db/init.sql` éénmalig uit op de Railway-MySQL (Railway-CLI: `railway run mysql < db/init.sql`).
+   * **bank1** (root dir = `Bank 1`, env uit `.env.example`)
+   * **bank2** (root dir = `Bank 2`, env uit `.env.example`)
+2. Voer `pingfin_database.sql` éénmalig uit op de Railway-MySQL (Railway-CLI: `railway run mysql < pingfin_database.sql`).
 3. Pas in elke service de env-vars aan:
    * `DB_HOST/PORT/USER/PASS` → Railway-MySQL credentials
    * `DB_NAME=pingfin_b1` (resp. `_b2`)
@@ -117,20 +112,20 @@ docker compose up --build
 
 ```bash
 # Bank1 → CB → Bank2
-curl -X POST http://localhost:3000/api/po_new/manual \
+curl -X POST http://localhost:8089/api/po_new/manual \
   -H "Content-Type: application/json" \
   -d '{"oa_id":"BE68539007547034","ba_id":"BE99100200300001","bb_id":"HOMNBEB1","po_amount":50.00,"po_message":"E2E test"}'
 
-curl http://localhost:3000/api/po_new/process
+curl http://localhost:8089/api/po_new/process
 # → status PENDING, cb_code 2000
 
 # Wacht 30s (BB-poller op Bank2 haalt PO op + stuurt ACK terug naar CB)
 # Wacht nog 30s (OB-poller op Bank1 haalt ACK op uit CB)
 
-curl http://localhost:3000/api/ack_in     # → bb_code 2000
-curl http://localhost:3000/api/po_out     # → status processed
-curl http://localhost:3001/api/po_in      # → bb_code 2000 (Bank2 zicht)
-curl http://localhost:3001/api/accounts   # → BE99100200300001 saldo 5050.00
+curl http://localhost:8089/api/ack_in     # → bb_code 2000
+curl http://localhost:8089/api/po_out     # → status processed
+curl http://localhost:8090/api/po_in      # → bb_code 2000 (Bank2 zicht)
+curl http://localhost:8090/api/accounts   # → BE99100200300001 saldo 5050.00
 ```
 
 ---

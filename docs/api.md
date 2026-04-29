@@ -13,7 +13,7 @@ Eén Node/Express codebase (`/api`) wordt twee keer gestart, één per BIC. Elke
 
 * publiceren `/api/*` endpoints
 * verifiëren Bearer-tokens op `POST /api/po_in` en `POST /api/ack_in`
-* hosten zelf de GUI (`/`) — `gui/` wordt mee in de Docker-image gestopt
+* hosten zelf de GUI (`/`) — elke bank heeft een eigen `public/` folder die mee in de Docker-image gaat
 * draaien achtergrondjobs:
   * **CB-token refresh** (4h TTL → 3.5h interval)
   * **BB-poller** elke 30s: `GET CB.po_out` → verwerk → `POST CB.ack_in`
@@ -112,22 +112,22 @@ docker compose up --build
 | Service | URL |
 |---|---|
 | GUI (nginx + reverse proxy) | http://localhost:8080 |
-| Bank1 API + GUI mee gehost | http://localhost:3000 |
-| Bank2 API + GUI mee gehost | http://localhost:3001 |
+| Bank1 (CEKVBE88) API + GUI mee gehost | http://localhost:8089 |
+| Bank2 (HOMNBEB1) API + GUI mee gehost | http://localhost:8090 |
 | MySQL | localhost:3306 |
 
-De `db`-container maakt automatisch **twee databases** aan (`pingfin_b1`, `pingfin_b2`) via `db/init.sql`.
+De `db`-container maakt automatisch **twee databases** aan (`pingfin_b1`, `pingfin_b2`) via het root-bestand `pingfin_database.sql`.
 
 ---
 
 ## 6. Deployment op Railway
 
-Twee services in hetzelfde project, beide buildend vanuit dezelfde repo (Dockerfile = `api/Dockerfile`):
+Twee services in hetzelfde project; per service stel je de **rootDir** in op de juiste bank-folder zodat Railway de bijbehorende `Dockerfile` gebruikt:
 
-* **Service `bank1`** met env-vars uit `api/.env.bank1.example` + Railway-MySQL-vars
-* **Service `bank2`** met env-vars uit `api/.env.bank2.example` + Railway-MySQL-vars
+* **Service `bank1`** — rootDir = `Bank 1`, env uit `Bank 1/.env.example` + Railway-MySQL-vars
+* **Service `bank2`** — rootDir = `Bank 2`, env uit `Bank 2/.env.example` + Railway-MySQL-vars
 
-In de Railway MySQL-database voer je éénmalig `db/init.sql` uit (twee databases worden aangemaakt).
+In de Railway MySQL-database voer je éénmalig `pingfin_database.sql` uit (twee databases worden aangemaakt).
 
 ---
 
@@ -137,18 +137,18 @@ Kort voorbeeld voor Bank1 (CEKVBE88):
 
 ```bash
 # Genereer 5 willekeurige PO's
-curl http://localhost:3000/api/po_new/generate?count=5
+curl http://localhost:8089/api/po_new/generate?count=5
 
 # Manuele PO (intern)
-curl -X POST http://localhost:3000/api/po_new/manual \
+curl -X POST http://localhost:8089/api/po_new/manual \
   -H "Content-Type: application/json" \
   -d '{"oa_id":"BE12890123456789","ba_id":"BE23901234567890","bb_id":"CEKVBE88","po_amount":15.00,"po_message":"interne test"}'
 
 # Verwerk
-curl http://localhost:3000/api/po_new/process
+curl http://localhost:8089/api/po_new/process
 
 # Push een PO (alsof we de CB zijn)
-curl -X POST http://localhost:3000/api/po_in \
+curl -X POST http://localhost:8089/api/po_in \
   -H "Authorization: Bearer changeme-bank1-incoming" \
   -H "Content-Type: application/json" \
   -d '{"data":[{"po_id":"GKCCBEBB_test1","po_amount":12.50,"po_datetime":"2026-04-29 10:00:00","ob_id":"GKCCBEBB","oa_id":"BE99999999999999","ob_code":2000,"cb_code":2000,"bb_id":"CEKVBE88","ba_id":"BE68539007547034"}]}'

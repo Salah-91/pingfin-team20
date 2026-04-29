@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="nl">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>PingFin — CEKVBE88</title>
+
+	<!-- Stijlbladen — elk met eigen verantwoordelijkheid -->
+	<link rel="stylesheet" href="css/base.css">
+	<link rel="stylesheet" href="css/layout.css">
+	<link rel="stylesheet" href="css/componenten.css">
+	<link rel="stylesheet" href="css/tabellen.css">
+	<link rel="stylesheet" href="css/formulieren.css">
+</head>
+
+<body>
+
+	<div class="pagina">
+
+		<!-- ════════════════════════════════════
+		     HEADER
+		════════════════════════════════════ -->
+		<header class="siteheader">
+			<div class="logo-blok">
+				<!-- span i.p.v. div: dit is inline tekst/icoon, geen blok -->
+				<span class="logo-icoon" aria-hidden="true">🏦</span>
+				<div class="logo-tekst">
+					<!-- p i.p.v. div: dit zijn tekstparagrafen -->
+					<p class="sitenaam">PingFin</p>
+					<p class="siteondertitel">Bank Dashboard — Team 20</p>
+				</div>
+			</div>
+			<div class="header-rechts">
+				<!-- span i.p.v. div: inline elementen -->
+				<span class="status-lamp" role="img" title="API verbonden" aria-label="API actief"></span>
+				<select id="bank-selector" class="bank-selector" onchange="wisselBank(this.value)"
+					title="Selecteer bank" aria-label="Bank selecteren">
+					<option value="bank1">Bank1 — CEKVBE88</option>
+					<option value="bank2">Bank2 — HOMNBEB1</option>
+				</select>
+				<span class="bic-label" id="header-bic-label">BIC: CEKVBE88</span>
+			</div>
+		</header>
+
+		<!-- ════════════════════════════════════
+		     NAV
+		════════════════════════════════════ -->
+		<nav class="sitenav" aria-label="Hoofdnavigatie">
+			<!-- type="button" verplicht: voorkomt onbedoeld form-submit gedrag -->
+			<button type="button" class="actief" onclick="toonSectie('dashboard', this)" aria-current="page">
+				📊 Dashboard
+			</button>
+			<button type="button" onclick="toonSectie('accounts', this)">
+				💳 Accounts
+			</button>
+			<button type="button" onclick="toonSectie('po-nieuw', this)">
+				➕ PO Aanmaken
+			</button>
+			<button type="button" onclick="toonSectie('po-uit', this)">
+				📤 PO_OUT
+			</button>
+			<button type="button" onclick="toonSectie('po-in', this)">
+				📥 PO_IN
+			</button>
+			<button type="button" onclick="toonSectie('ack-in', this)">
+				✅ ACK_IN
+			</button>
+			<button type="button" onclick="toonSectie('ack-uit', this)">
+				📨 ACK_OUT
+			</button>
+			<button type="button" onclick="toonSectie('transacties', this)">
+				💱 Transacties
+			</button>
+			<button type="button" onclick="toonSectie('logs', this)">
+				📜 Logs
+			</button>
+			<button type="button" onclick="toonSectie('banks', this)">
+				🏛️ Banks
+			</button>
+		</nav>
+
+		<!-- ════════════════════════════════════
+		     MAIN
+		════════════════════════════════════ -->
+		<main class="sitemain">
+
+			<!-- ── Dashboard ── -->
+			<section id="sectie-dashboard" class="sectie actief" aria-labelledby="titel-dashboard">
+				<h1 class="paginatitel" id="titel-dashboard">📊 Dashboard</h1>
+
+				<div class="statistieken-raster">
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-accounts">—</div>
+						<div class="statistiek-label">Accounts</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-po-uit">—</div>
+						<div class="statistiek-label">PO_OUT</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-po-in">—</div>
+						<div class="statistiek-label">PO_IN</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-ack-in">—</div>
+						<div class="statistiek-label">ACK_IN</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-tx">—</div>
+						<div class="statistiek-label">Transacties</div>
+					</div>
+					<div class="statistiek-kaart">
+						<div class="statistiek-waarde" id="stat-logs">—</div>
+						<div class="statistiek-label">Log-events</div>
+					</div>
+				</div>
+
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">⚡ Quick Actions — Achtergrondjobs</h2>
+						<span class="tabel-teller" id="job-status">jobs draaien automatisch elke 30s</span>
+					</div>
+					<div class="formulier-rij formulier-rij--wrap">
+						<button type="button" class="knop knop-primair" onclick="runJob('poll-po-out')">
+							📥 BB-poller (haal PO's uit CB)
+						</button>
+						<button type="button" class="knop knop-primair" onclick="runJob('poll-ack-out')">
+							📨 OB-poller (haal ACKs uit CB)
+						</button>
+						<button type="button" class="knop knop-succes" onclick="runJob('flush-ack-out')">
+							🔄 Flush ACK_OUT (retry oude)
+						</button>
+						<button type="button" class="knop knop-geest" onclick="runJob('timeout')">
+							⏰ 1u-timeout-monitor
+						</button>
+						<button type="button" class="knop knop-geest" onclick="runJob('cb-token')">
+							🔑 CB-token verversen
+						</button>
+					</div>
+					<div class="log-paneel" id="job-log" role="log" aria-live="polite"></div>
+				</article>
+
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">ℹ️ Bank Info</h2>
+						<button type="button" class="knop knop-geest" onclick="laadDashboard()">↻ Vernieuwen</button>
+					</div>
+					<div id="info-inhoud" class="laden">Laden…</div>
+				</article>
+			</section>
+
+			<!-- ── Accounts ── -->
+			<section id="sectie-accounts" class="sectie" aria-labelledby="titel-accounts">
+				<h1 class="paginatitel" id="titel-accounts">💳 Accounts</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Alle Rekeningen</h2>
+						<div class="tabel-werkbalk tabel-werkbalk--inline">
+							<span class="tabel-teller" id="accounts-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadAccounts()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">#</th>
+									<th scope="col">IBAN</th>
+									<th scope="col">Naam</th>
+									<th scope="col">Saldo</th>
+								</tr>
+							</thead>
+							<tbody id="accounts-rijen">
+								<tr>
+									<td colspan="4" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── PO Aanmaken ── -->
+			<section id="sectie-po-nieuw" class="sectie" aria-labelledby="titel-po-nieuw">
+				<h1 class="paginatitel" id="titel-po-nieuw">➕ Payment Orders Aanmaken</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">PO Generator</h2>
+					</div>
+
+					<div class="formulier-rij">
+						<div class="formulier-groep">
+							<label for="po-aantal">Aantal PO's</label>
+							<input type="number" id="po-aantal" value="5" min="1" max="20">
+						</div>
+						<button type="button" class="knop knop-primair" onclick="genereerPos()">
+							⚡ Genereer
+						</button>
+						<button type="button" class="knop knop-succes" onclick="slaPoNieuwOp()">
+							💾 Opslaan in PO_NEW
+						</button>
+						<button type="button" class="knop knop-gevaar" onclick="verwerkPoNieuw()">
+							▶ Verwerk PO_NEW
+						</button>
+					</div>
+
+					<!-- Manuele PO -->
+					<details class="manuele-po-details">
+						<summary class="manuele-po-summary">✏️ Manuele PO aanmaken</summary>
+						<div class="formulier-rij formulier-rij--wrap">
+							<div class="formulier-groep">
+								<label for="m-oa-id">OA IBAN</label>
+								<input type="text" id="m-oa-id" placeholder="BE68539007547034">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-ba-id">BA IBAN</label>
+								<input type="text" id="m-ba-id" placeholder="BE43068999999501">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-bb-id">BB BIC</label>
+								<input type="text" id="m-bb-id" placeholder="GKCCBEBB">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-amount">Bedrag (€)</label>
+								<input type="number" id="m-amount" placeholder="50.00" step="0.01" min="0.01" max="500">
+							</div>
+							<div class="formulier-groep">
+								<label for="m-message">Bericht</label>
+								<input type="text" id="m-message" placeholder="Manuele betaling">
+							</div>
+							<button type="button" class="knop knop-primair knop--zelf-onder" onclick="verstuurManuelePos()">
+								📨 Verstuur manuele PO
+							</button>
+						</div>
+					</details>
+
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">Bedrag</th>
+									<th scope="col">OA (IBAN)</th>
+									<th scope="col">BB (BIC)</th>
+									<th scope="col">BA (IBAN)</th>
+									<th scope="col">Bericht</th>
+								</tr>
+							</thead>
+							<tbody id="po-nieuw-rijen">
+								<tr class="rij-leeg">
+									<td colspan="6">Klik op Genereer om PO's aan te maken</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+
+					<div class="log-paneel" id="po-log" role="log" aria-live="polite" aria-label="Activiteitenlog">
+					</div>
+				</article>
+			</section>
+
+			<!-- ── PO_OUT ── -->
+			<section id="sectie-po-uit" class="sectie" aria-labelledby="titel-po-uit">
+				<h1 class="paginatitel" id="titel-po-uit">📤 PO_OUT — Uitgaande Betalingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Uitgaande Payment Orders</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="po-uit-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadPoUit()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">Bedrag</th>
+									<th scope="col">Datum</th>
+									<th scope="col">OB Code</th>
+									<th scope="col">CB Code</th>
+									<th scope="col">BB Code</th>
+								</tr>
+							</thead>
+							<tbody id="po-uit-rijen">
+								<tr>
+									<td colspan="6" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── PO_IN ── -->
+			<section id="sectie-po-in" class="sectie" aria-labelledby="titel-po-in">
+				<h1 class="paginatitel" id="titel-po-in">📥 PO_IN — Inkomende Betalingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Inkomende Payment Orders</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="po-in-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadPoIn()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">Bedrag</th>
+									<th scope="col">OB (BIC)</th>
+									<th scope="col">CB Code</th>
+									<th scope="col">BB Code</th>
+								</tr>
+							</thead>
+							<tbody id="po-in-rijen">
+								<tr>
+									<td colspan="5" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── ACK_IN ── -->
+			<section id="sectie-ack-in" class="sectie" aria-labelledby="titel-ack-in">
+				<h1 class="paginatitel" id="titel-ack-in">✅ ACK_IN — Ontvangen Bevestigingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Inkomende Acknowledgements</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="ack-in-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadAckIn()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">CB Code</th>
+									<th scope="col">BB Code</th>
+									<th scope="col">Ontvangen</th>
+								</tr>
+							</thead>
+							<tbody id="ack-in-rijen">
+								<tr>
+									<td colspan="4" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── ACK_OUT ── -->
+			<section id="sectie-ack-uit" class="sectie" aria-labelledby="titel-ack-uit">
+				<h1 class="paginatitel" id="titel-ack-uit">📨 ACK_OUT — Verstuurde Bevestigingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Uitgaande Acknowledgements</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="ack-uit-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadAckUit()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">BB Code</th>
+									<th scope="col">Verstuurd</th>
+								</tr>
+							</thead>
+							<tbody id="ack-uit-rijen">
+								<tr>
+									<td colspan="3" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Transacties ── -->
+			<section id="sectie-transacties" class="sectie" aria-labelledby="titel-transacties">
+				<h1 class="paginatitel" id="titel-transacties">💱 Transacties — Saldobewegingen</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Audit-trail (BA: positief, OA: negatief)</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="tx-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadTransacties()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">PO_ID</th>
+									<th scope="col">Account (IBAN)</th>
+									<th scope="col">Bedrag</th>
+									<th scope="col">Geldig</th>
+									<th scope="col">Voltooid</th>
+									<th scope="col">Datum</th>
+								</tr>
+							</thead>
+							<tbody id="tx-rijen">
+								<tr>
+									<td colspan="6" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Logs ── -->
+			<section id="sectie-logs" class="sectie" aria-labelledby="titel-logs">
+				<h1 class="paginatitel" id="titel-logs">📜 Event-logs</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Alle gebeurtenissen (PO-snapshot per regel)</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="logs-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadLogs()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="formulier-rij formulier-rij--wrap">
+						<div class="formulier-groep">
+							<label for="logs-type">Type filter</label>
+							<select id="logs-type" onchange="laadLogs()">
+								<option value="">— alle —</option>
+								<option value="po_manual">po_manual</option>
+								<option value="po_added">po_added</option>
+								<option value="po_generated">po_generated</option>
+								<option value="po_internal">po_internal</option>
+								<option value="po_rejected">po_rejected</option>
+								<option value="po_duplicate">po_duplicate</option>
+								<option value="po_sent_cb">po_sent_cb</option>
+								<option value="po_timeout">po_timeout</option>
+								<option value="oa_debited">oa_debited</option>
+								<option value="oa_refunded">oa_refunded</option>
+								<option value="ba_credited">ba_credited</option>
+								<option value="ack_processed">ack_processed</option>
+								<option value="ack_pushed">ack_pushed</option>
+								<option value="ack_polled">ack_polled</option>
+								<option value="cb_token">cb_token</option>
+								<option value="cb_error">cb_error</option>
+								<option value="error">error</option>
+							</select>
+						</div>
+						<div class="formulier-groep">
+							<label for="logs-limiet">Aantal</label>
+							<input type="number" id="logs-limiet" value="100" min="10" max="1000" onchange="laadLogs()">
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">Tijd</th>
+									<th scope="col">Type</th>
+									<th scope="col">Bericht</th>
+									<th scope="col">PO_ID</th>
+								</tr>
+							</thead>
+							<tbody id="logs-rijen">
+								<tr>
+									<td colspan="4" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+			<!-- ── Banks ── -->
+			<section id="sectie-banks" class="sectie" aria-labelledby="titel-banks">
+				<h1 class="paginatitel" id="titel-banks">🏛️ Banks — Geregistreerd bij CB</h1>
+				<article class="kaart">
+					<div class="kaart-header">
+						<h2 class="kaart-titel">Lijst opgehaald van CB.banks</h2>
+						<div class="kaart-acties">
+							<span class="tabel-teller" id="banks-teller"></span>
+							<button type="button" class="knop knop-geest" onclick="laadBanks()">↻ Vernieuwen</button>
+						</div>
+					</div>
+					<div class="tabel-wrap">
+						<table>
+							<thead>
+								<tr>
+									<th scope="col">#</th>
+									<th scope="col">BIC</th>
+									<th scope="col">Naam</th>
+								</tr>
+							</thead>
+							<tbody id="banks-rijen">
+								<tr>
+									<td colspan="3" class="laden">Laden…</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</article>
+			</section>
+
+		</main>
+
+		<!-- ════════════════════════════════════
+		     ASIDE
+		════════════════════════════════════ -->
+		<aside class="siteaside" aria-label="Snelle informatie">
+
+			<div class="info-blok">
+				<!-- h3 i.p.v. div: dit is een sectietitel -->
+				<h3 class="info-blok-titel">🔑 Verbinding</h3>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">Bank</span>
+					<span class="info-waarde" id="aside-banknaam-waarde">Bank1</span>
+				</div>
+				<!-- info-rij--compact: kleinere padding voor aside (zie componenten.css) -->
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">BIC</span>
+					<span class="info-waarde" id="aside-bic-waarde">CEKVBE88</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">Team</span>
+					<span class="info-waarde">Team 20</span>
+				</div>
+				<!-- info-rij--compact info-rij--laatste i.p.v. inline border:none -->
+				<div class="info-rij info-rij--compact info-rij--laatste">
+					<span class="info-label">Begeleider</span>
+					<!-- info-waarde--klein i.p.v. inline font-size:12px -->
+					<span class="info-waarde info-waarde--klein">Rogier van der Linde</span>
+				</div>
+			</div>
+
+			<div class="info-blok">
+				<h3 class="info-blok-titel">📖 SEPA-afkortingen</h3>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">OB</span>
+					<span class="info-waarde info-waarde--klein">Originating Bank</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">CB</span>
+					<span class="info-waarde info-waarde--klein">Clearing Bank</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">BB</span>
+					<span class="info-waarde info-waarde--klein">Beneficiary Bank</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">TX</span>
+					<span class="info-waarde info-waarde--klein">Transaction</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">PO</span>
+					<span class="info-waarde info-waarde--klein">Payment Order</span>
+				</div>
+				<div class="info-rij info-rij--compact">
+					<span class="info-label">OA</span>
+					<span class="info-waarde info-waarde--klein">Originator Account</span>
+				</div>
+				<div class="info-rij info-rij--compact info-rij--laatste">
+					<span class="info-label">BA</span>
+					<span class="info-waarde info-waarde--klein">Beneficiary Account</span>
+				</div>
+			</div>
+
+			<div class="info-blok">
+				<h3 class="info-blok-titel">🔗 Externe links</h3>
+				<!-- aside-link klasse i.p.v. inline color/font-size/text-decoration -->
+				<!-- rel="noopener noreferrer" verplicht bij target="_blank" (beveiliging) -->
+				<p class="aside-link-rij">
+					<a class="aside-link" href="https://stevenop.be/pingfin/api/v2/" target="_blank"
+						rel="noopener noreferrer">
+						CB API →
+					</a>
+				</p>
+				<p class="aside-link-rij">
+					<a class="aside-link" href="https://github.com/Salah-91/pingfin-team20" target="_blank"
+						rel="noopener noreferrer">
+						GitHub repo →
+					</a>
+				</p>
+				<p class="aside-link-rij">
+					<a class="aside-link" href="https://trello.com/invite/b/69ef187a4cf9b500a97c20a3/ATTIa3df15f8a049a241e32ac4067170ecc3BE12394D/pingfin" target="_blank" rel="noopener noreferrer">
+						Trello →
+					</a>
+				</p>
+			</div>
+
+		</aside>
+
+		<!-- ════════════════════════════════════
+		     FOOTER
+		════════════════════════════════════ -->
+		<footer class="sitefooter">
+			<span>© 2026 PingFin — Team 20 · Odisee</span>
+			<nav class="footer-links" aria-label="Voettekstnavigatie">
+				<!-- rel="noopener noreferrer" verplicht bij target="_blank" -->
+				<a href="https://stevenop.be/pingfin/api/v2/" target="_blank" rel="noopener noreferrer">CB API</a>
+				<a href="https://github.com/Salah-91/pingfin-team20" target="_blank"
+					rel="noopener noreferrer">GitHub</a>
+				<a href="https://trello.com/invite/b/69ef187a4cf9b500a97c20a3/ATTIa3df15f8a049a241e32ac4067170ecc3BE12394D/pingfin"
+					target="_blank" rel="noopener noreferrer">Trello</a>
+			</nav>
+		</footer>
+
+	</div><!-- /pagina -->
+
+	<!-- JavaScript — apart bestand -->
+	<script src="js/app.js"></script>
+
+</body>
+
+</html>
