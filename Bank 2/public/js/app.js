@@ -910,7 +910,9 @@ function voegLogToe(type, bericht) {
    Init
 ─────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
-  initialiseerBankSelector();
-  toonDevLinks();
-  startAutoPoll();
+  // Defensieve init: één fout mag NIET de hele page breken (tab-clicks moeten altijd werken)
+  try { initialiseerBankSelector(); } catch (e) { console.error('[init] selector fout:', e); }
+  try { toonDevLinks(); }            catch (e) { console.error('[init] devlinks fout:', e); }
+  try { startAutoPoll(); }            catch (e) { console.error('[init] auto-poll fout:', e); }
+  console.log('[PingFin] GUI v2 geladen — auto-poll elke 5s actief');
 });

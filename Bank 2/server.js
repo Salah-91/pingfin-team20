@@ -61,8 +61,17 @@ app.use('/api', require('./routes/misc'));
 app.use('/api', require('./routes/jobs'));
 
 // GUI (static) — gehost vanuit lokale ./public folder (self-contained per bank)
+// Cache-Control 0 zodat Railway/browser nooit oude JS/CSS vasthoudt na deploy
 const guiDir = path.resolve(__dirname, './public');
-app.use('/', express.static(guiDir, { extensions: ['html'], index: 'index.html' }));
+app.use('/', express.static(guiDir, {
+  extensions: ['html'],
+  index: 'index.html',
+  setHeaders: (res, filePath) => {
+    if (/\.(js|css|html)$/.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    }
+  },
+}));
 
 // 404
 app.use((req, res) => {
