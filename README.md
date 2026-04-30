@@ -3,9 +3,33 @@
 **Banken:** CEKVBE88 (Bank1) & HOMNBEB1 (Bank2)
 **Workshop:** 27–30 april 2026 — Odisee
 **Coaches:** Rogier van der Linde & Polina Kozlova
-**Team:** Salaheddine Sennouni · Saidi Marwan · Azouagh Abdallah · Abdeddoun Ayoub
+**Team:** Salaheddine Sennouni · Azouagh Abdallah · Abdeddoun Ayoub
 
 Sample CB: <https://stevenop.be/pingfin/api/v2>
+
+**Live productie URLs**
+- Bank 1: <https://pingfin-team20-production.up.railway.app>
+- Bank 2: <https://pingfin-team20-bank2-production.up.railway.app>
+
+---
+
+## 📦 Deliverables checklist (eindzip-bundel)
+
+| Wat | Locatie | Status |
+|---|---|---|
+| **Code** (JS, HTML, CSS) | `Bank 1/`, `Bank 2/` | ✅ |
+| **Docker-files** | `Bank N/Dockerfile`, `Bank N/docker-compose.yml`, `docker-compose.yml` (root) | ✅ |
+| **SQL schema** | `pingfin_database.sql` (root) | ✅ |
+| **SQL dump** | `docs/sql-dump/` (run `scripts/dump-database.ps1` om te genereren) | ✅ |
+| **Visualisatie messaging scenarios** | [`docs/scenarios.md`](docs/scenarios.md) — 5 use cases + exceptions | ✅ |
+| **Eindverslag** | [`docs/verslag-volledig.md`](docs/verslag-volledig.md) | ✅ |
+| **Eindpresentatie** | [`docs/PingFin-Eindpresentatie.html`](docs/PingFin-Eindpresentatie.html) (open in browser) | ✅ |
+| **Test-rapport** | [`docs/test-rapport.md`](docs/test-rapport.md) | ✅ |
+| **Security audit** | [`docs/security.md`](docs/security.md) | ✅ |
+| **Dag-rapporten** | [`docs/dag1.md`](docs/dag1.md) t/m [`docs/dag4.md`](docs/dag4.md) | ✅ |
+| **API documentatie** | [`docs/api.md`](docs/api.md) | ✅ |
+| **Geld-flow uitleg** | [`docs/geld-flow.md`](docs/geld-flow.md) | ✅ |
+| **Presentatie script** | [`docs/presentatie-script.md`](docs/presentatie-script.md) | ✅ |
 
 ---
 
