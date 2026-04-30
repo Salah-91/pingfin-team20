@@ -31,7 +31,7 @@ function buildBanken() {
 
 const BANKEN     = buildBanken();
 const EERSTE_KEY = Object.keys(BANKEN)[0];
-const POLL_INTERVAL_MS = 10_000;          // auto-refresh elke 10s
+const POLL_INTERVAL_MS = 5_000;           // auto-refresh elke 5s (sneller demo-feedback)
 const TOAST_DUUR_MS    = 7_000;           // toasts blijven 7s zichtbaar
 
 let huidigeBank      = BANKEN[EERSTE_KEY];
@@ -46,6 +46,7 @@ const snapshot = {
   ackIn:  new Set(),
   ackOut: new Set(),
   saldi:  new Map(),    // iban → balance
+  txIds:  new Set(),    // transaction.id (voor interne PO's die geen po_in/po_out triggeren)
   geinitialiseerd: false,
 };
 
@@ -318,12 +319,13 @@ function bijOpenenManuelePo() {
 async function pollLoop() {
   const indicator = document.getElementById('poll-indicator');
   try {
-    const [poIn, poOut, ackIn, ackOut, accounts] = await Promise.all([
+    const [poIn, poOut, ackIn, ackOut, accounts, transactions] = await Promise.all([
       apiFetch('/po_in').then(normaliseer),
       apiFetch('/po_out').then(normaliseer),
       apiFetch('/ack_in').then(normaliseer),
       apiFetch('/ack_out').then(normaliseer),
       apiFetch('/accounts').then(normaliseer),
+      apiFetch('/transactions').then(normaliseer),
     ]);
 
     if (snapshot.geinitialiseerd) {
@@ -332,6 +334,7 @@ async function pollLoop() {
       diffAckIn(ackIn);
       diffAckOut(ackOut);
       diffSaldi(accounts);
+      diffTransacties(transactions);
     } else {
       // Eerste run: alleen vullen, geen toasts
       poIn.forEach(p => snapshot.poIn.add(p.po_id));
@@ -339,6 +342,7 @@ async function pollLoop() {
       ackIn.forEach(a => snapshot.ackIn.add(a.po_id));
       ackOut.forEach(a => snapshot.ackOut.add(a.po_id));
       accounts.forEach(a => snapshot.saldi.set(a.id, parseFloat(a.balance ?? 0)));
+      transactions.forEach(t => snapshot.txIds.add(t.id));
       snapshot.geinitialiseerd = true;
       cache.accounts = accounts;
       vulManueleDropdowns();
@@ -355,6 +359,35 @@ async function pollLoop() {
   } catch (err) {
     indicator?.classList.add('poll-fout');
     console.warn('[poll] fout:', err.message);
+  }
+}
+
+// Nieuwe functie: trigger toast bij elke nieuwe transaction (interne PO's komen hier)
+function diffTransacties(rijen) {
+  const nieuwe = rijen.filter(t => !snapshot.txIds.has(t.id));
+  // Groepeer per po_id om dubbele toasts (debit + credit) te vermijden
+  const perPo = {};
+  nieuwe.forEach(t => {
+    snapshot.txIds.add(t.id);
+    perPo[t.po_id] = perPo[t.po_id] || [];
+    perPo[t.po_id].push(t);
+  });
+  for (const [poId, txs] of Object.entries(perPo)) {
+    const debet  = txs.find(t => parseFloat(t.amount) < 0);
+    const credit = txs.find(t => parseFloat(t.amount) > 0);
+    if (debet && credit) {
+      // Interne PO: één debet + één credit in zelfde bank
+      const bedrag = Math.abs(parseFloat(debet.amount)).toFixed(2);
+      toast('ok', '🔁 Interne betaling voltooid',
+            `${poId} · €${bedrag} · ${debet.account_id} → ${credit.account_id}`);
+    } else if (debet) {
+      toast('info', '➖ Debit (uitgaande betaling)',
+            `${poId} · −€${Math.abs(parseFloat(debet.amount)).toFixed(2)} · ${debet.account_id}`);
+    } else if (credit) {
+      toast('ok', '➕ Credit (inkomende betaling)',
+            `${poId} · +€${parseFloat(credit.amount).toFixed(2)} · ${credit.account_id}`);
+    }
+    markeerNieuw('transacties');
   }
 }
 
@@ -815,11 +848,20 @@ async function verstuurManuelePos() {
     const data = await r.json();
     if (data.ok) {
       voegLogToe('ok', `Manuele PO aangemaakt: ${data.data?.po_id}`);
-      toast('ok', 'Manuele PO aangemaakt', `${data.data?.po_id} — klik op "Verwerk PO_NEW" om te versturen`);
+      toast('ok', 'Manuele PO aangemaakt', `${data.data?.po_id} — wordt automatisch verwerkt…`);
       // Velden leegmaken voor volgende
       document.getElementById('m-amount').value = '';
       document.getElementById('m-message').value = '';
       document.getElementById('m-ba-id').value = '';
+
+      // Auto-trigger process zodat user niet ook nog op "Verwerk" moet klikken
+      try {
+        const r2 = await apiFetch('/po_new/process');
+        toast(r2.ok ? 'ok' : 'fout', '⚙️ Auto-verwerkt', r2.message ?? '');
+      } catch {}
+
+      // Force poll-pass om saldo/tx-toasts meteen te tonen
+      pollLoop();
     } else {
       voegLogToe('fout', `Geweigerd (code ${data.code}): ${data.message}`);
       toast('fout', `PO geweigerd (${data.code})`, data.message);
