@@ -19,7 +19,7 @@ app.use((req, res, next) => {
     + "script-src 'self'; "
     + "style-src 'self' 'unsafe-inline'; "                    // CSS-in-HTML attributes (kleine usage)
     + "img-src 'self' data:; "
-    + "connect-src 'self' https://stevenop.be; "              // alleen onze API + CB
+    + "connect-src 'self' https://stevenop.be https://*.railway.app; "  // self + CB + cross-bank
     + "frame-ancestors 'none';"
   );
   next();

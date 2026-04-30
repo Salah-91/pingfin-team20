@@ -23,14 +23,35 @@ function buildBanken() {
       }
     };
   }
+  // Productie / Railway: gebruik altijd huidige origin als apiBase voor de bank
+  // waarop de browser zich bevindt (vermijdt CSP-issues + sneller). De andere
+  // bank krijgt zijn hardcoded URL.
+  const isOnBank2 = /bank2/i.test(o);
   return {
-    bank1: { naam: 'Bank1', bic: 'CEKVBE88', apiBase: RAILWAY_BANK1 + '/api', heeftManuelePo: true },
-    bank2: { naam: 'Bank2', bic: 'HOMNBEB1', apiBase: RAILWAY_BANK2 + '/api', heeftManuelePo: true },
+    bank1: {
+      naam: 'Bank1', bic: 'CEKVBE88',
+      apiBase: (isOnBank2 ? RAILWAY_BANK1 : o) + '/api',
+      heeftManuelePo: true,
+    },
+    bank2: {
+      naam: 'Bank2', bic: 'HOMNBEB1',
+      apiBase: (isOnBank2 ? o : RAILWAY_BANK2) + '/api',
+      heeftManuelePo: true,
+    },
   };
 }
 
+// Bepaal default-bank op basis van welk Railway-domein gebruiker bezoekt.
+// Voorkomt dat huidigeBank standaard 'bank1' is terwijl gebruiker op bank2's URL zit.
+function bepaalStandaardBankKey() {
+  const o = window.location.origin;
+  if (/bank2/i.test(o)) return 'bank2';
+  if (/localhost:8090/.test(o)) return 'bank2';
+  return Object.keys(BANKEN)[0];   // fallback bank1
+}
+
 const BANKEN     = buildBanken();
-const EERSTE_KEY = Object.keys(BANKEN)[0];
+const EERSTE_KEY = bepaalStandaardBankKey();   // auto-detect op basis van URL
 const POLL_INTERVAL_MS = 5_000;           // auto-refresh elke 5s (sneller demo-feedback)
 const TOAST_DUUR_MS    = 7_000;           // toasts blijven 7s zichtbaar
 
