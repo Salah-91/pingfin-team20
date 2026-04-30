@@ -51,6 +51,9 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, status: 200, message: `PingFin Bank ${cfg.bic} (${cfg.bankName}) draait`, data: null });
 });
 
+// Favicon — voorkom 404 noise in browser console
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // API
 app.use('/api', require('./routes/help'));
 app.use('/api', require('./routes/info'));

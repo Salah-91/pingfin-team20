@@ -26,7 +26,7 @@ module.exports = {
     url:        (process.env.CB_URL || 'https://stevenop.be/pingfin/api/v2').replace(/\/$/, ''),
     secret:     process.env.CB_SECRET || '',          // wordt gebruikt om token op te halen
     initialToken: process.env.CB_TOKEN || '',         // optioneel: vooraf gekend token
-    pollIntervalMs: parseInt(process.env.CB_POLL_MS, 10) || 30_000,
+    pollIntervalMs: parseInt(process.env.CB_POLL_MS, 10) || 5_000,    // Default 5s — snel voor demo, set CB_POLL_MS=30000 voor productie
   },
 
   // Bearer-token dat ANDERE banken/CB moeten meesturen om POST /po_in en POST /ack_in te gebruiken

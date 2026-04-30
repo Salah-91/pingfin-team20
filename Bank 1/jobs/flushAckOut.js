@@ -95,8 +95,8 @@ async function runOnce(limit = 100) {
 
 function start() {
   if (!cfg.jobsEnabled) return;
-  setTimeout(runOnce, 15_000);
-  setInterval(runOnce, 60_000).unref();      // elke minuut
+  setTimeout(runOnce, 5_000);                // eerste run na 5s
+  setInterval(runOnce, 10_000).unref();      // elke 10s — snel voor demo
 }
 
 module.exports = { runOnce, start };
