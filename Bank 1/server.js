@@ -8,6 +8,43 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+// ── Basic security headers (defensieve laag bovenop Bearer auth) ────────
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');         // geen MIME-sniffing
+  res.setHeader('X-Frame-Options', 'DENY');                   // geen iframe-embedding
+  res.setHeader('Referrer-Policy', 'no-referrer');            // geen referer leak
+  res.setHeader('X-XSS-Protection', '0');                     // moderne browsers gebruiken CSP
+  res.setHeader('Content-Security-Policy',
+    "default-src 'self'; "
+    + "script-src 'self'; "
+    + "style-src 'self' 'unsafe-inline'; "                    // CSS-in-HTML attributes (kleine usage)
+    + "img-src 'self' data:; "
+    + "connect-src 'self' https://stevenop.be; "              // alleen onze API + CB
+    + "frame-ancestors 'none';"
+  );
+  next();
+});
+
+// ── Rate-limit op POST endpoints (geen externe lib — eenvoudige in-memory limiter) ──
+const postHits = new Map();   // ip → { count, resetAt }
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT = 60;        // max 60 POST/min per IP
+app.use((req, res, next) => {
+  if (req.method !== 'POST') return next();
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+  const entry = postHits.get(ip);
+  if (!entry || now > entry.resetAt) {
+    postHits.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return next();
+  }
+  entry.count++;
+  if (entry.count > RATE_LIMIT) {
+    return res.status(429).json({ ok: false, status: 429, code: null, message: 'Te veel requests, probeer later opnieuw', data: null });
+  }
+  next();
+});
+
 // Health (JSON) op een aparte path zodat de GUI op '/' kan staan
 app.get('/health', (req, res) => {
   res.json({ ok: true, status: 200, message: `PingFin Bank ${cfg.bic} (${cfg.bankName}) draait`, data: null });

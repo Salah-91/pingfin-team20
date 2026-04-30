@@ -581,27 +581,12 @@
 				</div>
 			</div>
 
-			<div class="info-blok">
-				<h3 class="info-blok-titel">🔗 Externe links</h3>
-				<!-- aside-link klasse i.p.v. inline color/font-size/text-decoration -->
-				<!-- rel="noopener noreferrer" verplicht bij target="_blank" (beveiliging) -->
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://stevenop.be/pingfin/api/v2/" target="_blank"
-						rel="noopener noreferrer">
-						CB API →
-					</a>
-				</p>
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://github.com/Salah-91/pingfin-team20" target="_blank"
-						rel="noopener noreferrer">
-						GitHub repo →
-					</a>
-				</p>
-				<p class="aside-link-rij">
-					<a class="aside-link" href="https://trello.com/invite/b/69ef187a4cf9b500a97c20a3/ATTIa3df15f8a049a241e32ac4067170ecc3BE12394D/pingfin" target="_blank" rel="noopener noreferrer">
-						Trello →
-					</a>
-				</p>
+			<!-- Externe links zijn verwijderd uit de publieke GUI om security-redenen.
+			     Trello-invite link gaf willekeurige bezoekers schrijftoegang tot ons board.
+			     GitHub & CB-API URLs exposeerden onze attack surface onnodig. -->
+			<div class="info-blok" id="dev-links" style="display:none;">
+				<h3 class="info-blok-titel">🔗 Dev-only links</h3>
+				<p class="aside-link-rij"><span class="info-waarde info-waarde--klein">Alleen zichtbaar in localhost</span></p>
 			</div>
 
 		</aside>
@@ -611,13 +596,8 @@
 		════════════════════════════════════ -->
 		<footer class="sitefooter">
 			<span>© 2026 PingFin — Team 20 · Odisee</span>
-			<nav class="footer-links" aria-label="Voettekstnavigatie">
-				<!-- rel="noopener noreferrer" verplicht bij target="_blank" -->
-				<a href="https://stevenop.be/pingfin/api/v2/" target="_blank" rel="noopener noreferrer">CB API</a>
-				<a href="https://github.com/Salah-91/pingfin-team20" target="_blank"
-					rel="noopener noreferrer">GitHub</a>
-				<a href="https://trello.com/invite/b/69ef187a4cf9b500a97c20a3/ATTIa3df15f8a049a241e32ac4067170ecc3BE12394D/pingfin"
-					target="_blank" rel="noopener noreferrer">Trello</a>
+			<nav class="footer-links" aria-label="Voettekstnavigatie" id="footer-dev-links" style="display:none;">
+				<!-- Externe links worden alleen in dev (localhost) getoond — JS toggled visibility -->
 			</nav>
 		</footer>
 

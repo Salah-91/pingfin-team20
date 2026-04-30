@@ -212,13 +212,13 @@ async function laadDropdownData() {
 }
 
 function vulManueleDropdowns() {
-  // OA: eigen accounts met saldo
+  // OA: eigen accounts met saldo (XSS-veilig: alle attributen + textContent escapen)
   const oaSel = document.getElementById('m-oa-id');
   if (oaSel) {
     const huidige = oaSel.value;
     oaSel.innerHTML = '<option value="">— kies een eigen rekening —</option>'
       + cache.accounts.map(a =>
-          `<option value="${a.id}" data-balance="${a.balance ?? 0}">${a.id} — ${a.owner_name ?? '?'} (€${parseFloat(a.balance ?? 0).toFixed(2)})</option>`
+          `<option value="${escapeHtml(a.id)}" data-balance="${parseFloat(a.balance ?? 0)}">${escapeHtml(a.id)} — ${escapeHtml(a.owner_name ?? '?')} (€${parseFloat(a.balance ?? 0).toFixed(2)})</option>`
         ).join('');
     if (huidige && cache.accounts.some(a => a.id === huidige)) oaSel.value = huidige;
     updateOaSaldo();
@@ -228,12 +228,12 @@ function vulManueleDropdowns() {
   const bbSel = document.getElementById('m-bb-id');
   if (bbSel) {
     const huidige = bbSel.value;
-    const eigen = `<option value="${huidigeBank.bic}">${huidigeBank.bic} — ${huidigeBank.naam} (intern)</option>`;
+    const eigen = `<option value="${escapeHtml(huidigeBank.bic)}">${escapeHtml(huidigeBank.bic)} — ${escapeHtml(huidigeBank.naam)} (intern)</option>`;
     const externen = cache.banks
       .filter(b => (b.bic || b.id) && (b.bic || b.id) !== huidigeBank.bic)
       .map(b => {
         const bic = b.bic || b.id;
-        return `<option value="${bic}">${bic} — ${b.name ?? '?'}</option>`;
+        return `<option value="${escapeHtml(bic)}">${escapeHtml(bic)} — ${escapeHtml(b.name ?? '?')}</option>`;
       }).join('');
     bbSel.innerHTML = '<option value="">— kies ontvangende bank —</option>' + eigen + externen;
     if (huidige) bbSel.value = huidige;
@@ -244,8 +244,34 @@ function vulManueleDropdowns() {
   const baList = document.getElementById('m-ba-suggesties');
   if (baList) {
     baList.innerHTML = cache.accounts.map(a =>
-      `<option value="${a.id}">${a.owner_name ?? '?'} — €${parseFloat(a.balance ?? 0).toFixed(2)}</option>`
+      `<option value="${escapeHtml(a.id)}">${escapeHtml(a.owner_name ?? '?')} — €${parseFloat(a.balance ?? 0).toFixed(2)}</option>`
     ).join('');
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Dev-only links toggle — alleen op localhost zichtbaar
+─────────────────────────────────────────────── */
+function toonDevLinks() {
+  const isLocaal = /^(localhost|127\.|0\.0\.|::1)/i.test(window.location.hostname);
+  if (!isLocaal) return;   // op productie blijven links verborgen
+
+  // Aside dev-blok
+  const aside = document.getElementById('dev-links');
+  if (aside) {
+    aside.style.display = '';
+    aside.innerHTML = `
+      <h3 class="info-blok-titel">🔗 Dev-links (lokaal)</h3>
+      <p class="aside-link-rij"><a class="aside-link" href="https://stevenop.be/pingfin/api/v2/" target="_blank" rel="noopener noreferrer">CB API →</a></p>
+      <p class="aside-link-rij"><a class="aside-link" href="https://github.com/Salah-91/pingfin-team20" target="_blank" rel="noopener noreferrer">GitHub repo →</a></p>`;
+  }
+  // Footer dev-links
+  const footer = document.getElementById('footer-dev-links');
+  if (footer) {
+    footer.style.display = '';
+    footer.innerHTML = `
+      <a href="https://stevenop.be/pingfin/api/v2/" target="_blank" rel="noopener noreferrer">CB API</a>
+      <a href="https://github.com/Salah-91/pingfin-team20" target="_blank" rel="noopener noreferrer">GitHub</a>`;
   }
 }
 
@@ -459,17 +485,17 @@ async function laadDashboard() {
   try {
     const res = await apiFetch('/info');
     const d   = res.data ?? res ?? {};
+    // XSS-veilig: alle backend-velden eerst escapen
     document.getElementById('info-inhoud').innerHTML = `
-      <div class="info-rij"><span class="info-label">Banknaam</span><span class="info-waarde">${d.bank_name ?? '—'}</span></div>
-      <div class="info-rij"><span class="info-label">BIC</span><span class="info-waarde">${d.bic ?? '—'}</span></div>
-      <div class="info-rij"><span class="info-label">CB API</span><span class="info-waarde">https://stevenop.be/pingfin/api/v2/</span></div>
-      <div class="info-rij"><span class="info-label">Team</span><span class="info-waarde">${d.team ?? '—'}</span></div>
+      <div class="info-rij"><span class="info-label">Banknaam</span><span class="info-waarde">${escapeHtml(d.bank_name ?? '—')}</span></div>
+      <div class="info-rij"><span class="info-label">BIC</span><span class="info-waarde">${escapeHtml(d.bic ?? '—')}</span></div>
+      <div class="info-rij"><span class="info-label">Team</span><span class="info-waarde">${escapeHtml(d.team ?? '—')}</span></div>
       <div class="leden-raster">
         ${(d.members || []).map(m => `
           <div class="lid-kaart">
-            <div class="lid-avatar">${(m.name ?? '?')[0]}</div>
-            <div class="lid-naam">${m.name}</div>
-            <div class="lid-rol">${m.role ?? ''}</div>
+            <div class="lid-avatar">${escapeHtml((m.name ?? '?')[0])}</div>
+            <div class="lid-naam">${escapeHtml(m.name ?? '')}</div>
+            <div class="lid-rol">${escapeHtml(m.role ?? '')}</div>
           </div>`).join('')}
       </div>`;
   } catch {
@@ -532,8 +558,8 @@ async function laadAccounts() {
       ? rijen.map((a, i) => `
           <tr>
             <td class="cel-mono">${i + 1}</td>
-            <td class="cel-iban">${a.id ?? '—'}</td>
-            <td>${a.owner_name ?? '—'}</td>
+            <td class="cel-iban">${escapeHtml(a.id ?? '—')}</td>
+            <td>${escapeHtml(a.owner_name ?? '—')}</td>
             <td>${euro(a.balance)}</td>
           </tr>`).join('')
       : legeRij(4, 'Geen accounts');
@@ -556,8 +582,8 @@ async function laadTransacties() {
           const valid  = t.isvalid ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-fout">✕</span>';
           const compl  = t.iscomplete ? '<span class="badge badge-ok">✓</span>' : '<span class="badge badge-wacht">…</span>';
           return `<tr>
-            <td class="cel-mono">${t.po_id ?? '—'}</td>
-            <td class="cel-iban">${t.account_id ?? '—'}</td>
+            <td class="cel-mono">${escapeHtml(t.po_id ?? '—')}</td>
+            <td class="cel-iban">${escapeHtml(t.account_id ?? '—')}</td>
             <td><span class="badge ${klasse}">${teken}€${Math.abs(bedrag).toFixed(2)}</span></td>
             <td>${valid}</td><td>${compl}</td>
             <td>${datumCel(t.datetime)}</td></tr>`;
@@ -585,9 +611,9 @@ async function laadLogs() {
           const cls     = isError ? 'log-item fout' : (isOk ? 'log-item ok' : 'log-item info');
           return `<tr class="${cls}" style="background:transparent">
             <td class="cel-mono">${datumCel(l.datetime)}</td>
-            <td class="cel-mono">${l.type ?? '—'}</td>
+            <td class="cel-mono">${escapeHtml(l.type ?? '—')}</td>
             <td>${escapeHtml(l.message ?? '')}</td>
-            <td class="cel-mono">${l.po_id ?? '—'}</td></tr>`;
+            <td class="cel-mono">${escapeHtml(l.po_id ?? '—')}</td></tr>`;
         }).join('')
       : legeRij(4, 'Geen log-events');
   } catch {
@@ -607,8 +633,8 @@ async function laadBanks() {
           const isOurs = (b.bic || b.id) === huidigeBank.bic;
           return `<tr ${isOurs ? 'style="background:rgba(80,200,120,.08)"' : ''}>
             <td class="cel-mono">${i + 1}</td>
-            <td class="cel-mono">${b.bic ?? b.id ?? '—'}${isOurs ? ' <span class="badge badge-ok">jij</span>' : ''}</td>
-            <td>${b.name ?? '—'}</td></tr>`;
+            <td class="cel-mono">${escapeHtml(b.bic ?? b.id ?? '—')}${isOurs ? ' <span class="badge badge-ok">jij</span>' : ''}</td>
+            <td>${escapeHtml(b.name ?? '—')}</td></tr>`;
         }).join('')
       : legeRij(3, 'Geen banken in CB-lijst');
   } catch {
@@ -625,7 +651,7 @@ async function laadPoUit() {
     zetTeller('po-uit-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(p => `<tr>
-          <td class="cel-mono">${p.po_id}</td>
+          <td class="cel-mono">${escapeHtml(p.po_id)}</td>
           <td>${euro(p.po_amount)}</td>
           <td>${datumCel(p.po_datetime)}</td>
           <td>${badge(p.ob_code)}</td>
@@ -645,9 +671,9 @@ async function laadPoIn() {
     zetTeller('po-in-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(p => `<tr>
-          <td class="cel-mono">${p.po_id}</td>
+          <td class="cel-mono">${escapeHtml(p.po_id)}</td>
           <td>${euro(p.po_amount)}</td>
-          <td class="cel-mono">${p.ob_id ?? '—'}</td>
+          <td class="cel-mono">${escapeHtml(p.ob_id ?? '—')}</td>
           <td>${badge(p.cb_code)}</td>
           <td>${badge(p.bb_code)}</td></tr>`).join('')
       : legeRij(5, 'Geen data');
@@ -664,7 +690,7 @@ async function laadAckIn() {
     zetTeller('ack-in-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(a => `<tr>
-          <td class="cel-mono">${a.po_id}</td>
+          <td class="cel-mono">${escapeHtml(a.po_id)}</td>
           <td>${badge(a.cb_code)}</td>
           <td>${badge(a.bb_code)}</td>
           <td>${datumCel(a.received_at)}</td></tr>`).join('')
@@ -682,7 +708,7 @@ async function laadAckUit() {
     zetTeller('ack-uit-teller', rijen);
     tbody.innerHTML = rijen.length
       ? rijen.map(a => `<tr>
-          <td class="cel-mono">${a.po_id}</td>
+          <td class="cel-mono">${escapeHtml(a.po_id)}</td>
           <td>${badge(a.bb_code)}</td>
           <td>${datumCel(a.sent_at)}</td></tr>`).join('')
       : legeRij(3, 'Geen data');
@@ -703,12 +729,12 @@ async function genereerPos() {
     gegenereerdePos = data;
     document.getElementById('po-nieuw-rijen').innerHTML = gegenereerdePos.map(p => `
       <tr>
-        <td class="cel-mono">${p.po_id}</td>
+        <td class="cel-mono">${escapeHtml(p.po_id)}</td>
         <td>${euro(p.po_amount)}</td>
-        <td class="cel-iban">${p.oa_id}</td>
-        <td class="cel-mono">${p.bb_id}</td>
-        <td class="cel-iban">${p.ba_id}</td>
-        <td>${p.po_message}</td>
+        <td class="cel-iban">${escapeHtml(p.oa_id)}</td>
+        <td class="cel-mono">${escapeHtml(p.bb_id)}</td>
+        <td class="cel-iban">${escapeHtml(p.ba_id)}</td>
+        <td>${escapeHtml(p.po_message ?? '')}</td>
       </tr>`).join('');
     voegLogToe('ok', `${gegenereerdePos.length} PO's gegenereerd`);
     toast('ok', `${gegenereerdePos.length} PO's gegenereerd`, 'Klik op Opslaan om ze in PO_NEW te plaatsen');
@@ -822,5 +848,6 @@ function voegLogToe(type, bericht) {
 ─────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   initialiseerBankSelector();
+  toonDevLinks();
   startAutoPoll();
 });
