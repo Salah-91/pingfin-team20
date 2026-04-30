@@ -16,10 +16,11 @@ app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '0');                     // moderne browsers gebruiken CSP
   res.setHeader('Content-Security-Policy',
     "default-src 'self'; "
-    + "script-src 'self'; "
-    + "style-src 'self' 'unsafe-inline'; "                    // CSS-in-HTML attributes (kleine usage)
+    + "script-src 'self' 'unsafe-inline'; "                              // inline onclick="..." in HTML (tabs!)
+    + "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "  // Google Fonts CSS
+    + "font-src 'self' https://fonts.gstatic.com; "                      // Google Fonts files
     + "img-src 'self' data:; "
-    + "connect-src 'self' https://stevenop.be https://*.railway.app; "  // self + CB + cross-bank
+    + "connect-src 'self' https://stevenop.be https://*.railway.app; "   // self + CB + cross-bank
     + "frame-ancestors 'none';"
   );
   next();
